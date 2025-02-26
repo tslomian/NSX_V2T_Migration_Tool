@@ -5645,8 +5645,8 @@ class VCloudDirectorOperations(ConfigureEdgeGatewayServices):
                                  'providerVdcType': targetPVDCPayloadDict['@type'],
                                  'usesFastProvisioning': data['sourceOrgVDC']['UsesFastProvisioning'],
                                  'defaultComputePolicy': '',
-                                 'isElastic': data['sourceOrgVDC']['IsElastic'],
-                                 'includeMemoryOverhead': data['sourceOrgVDC']['IncludeMemoryOverhead']}
+                                 'isElastic': data['sourceOrgVDC'].get('IsElastic', False),
+                                 'includeMemoryOverhead': data['sourceOrgVDC'].get('IncludeMemoryOverhead', False)}
 
             # retrieving org vdc compute policies
             allOrgVDCComputePolicesList = self.getOrgVDCComputePolicies()
