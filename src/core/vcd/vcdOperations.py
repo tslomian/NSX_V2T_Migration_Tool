@@ -1662,9 +1662,8 @@ class VCloudDirectorOperations(ConfigureEdgeGatewayServices):
                         portGroup['scopeType'] not in ['-1', '1'] and \
                         portGroup['networkName'] in networkNameList and \
                         portGroup['network'].split('/')[-1] in networkIdMapping.keys():
-                    portGroupDict[portGroup['networkName']].append({"moref": portGroup["moref"],
-                                                                   "networkName": portGroup["networkName"]})
-
+                    portGroupDict[portGroup['networkName']].append({"moref": portGroup["moref"], "networkName": portGroup["networkName"],
+                         "vdcName": networkIdMapping[portGroup['network'].split('/')[-1]]["ownerRef"]["name"]})
             # Saving portgroups data to metadata data structure
             data['portGroupList'] = list(portGroupDict.values())
             logger.info('Retrieved the portgroup of source org vdc networks.')
@@ -5645,8 +5644,8 @@ class VCloudDirectorOperations(ConfigureEdgeGatewayServices):
                                  'providerVdcType': targetPVDCPayloadDict['@type'],
                                  'usesFastProvisioning': data['sourceOrgVDC']['UsesFastProvisioning'],
                                  'defaultComputePolicy': '',
-                                 'isElastic': data['sourceOrgVDC']['IsElastic'],
-                                 'includeMemoryOverhead': data['sourceOrgVDC']['IncludeMemoryOverhead']}
+                                 'isElastic': data['sourceOrgVDC'].get('IsElastic', False),
+                                 'includeMemoryOverhead': data['sourceOrgVDC'].get('IncludeMemoryOverhead', False)}
 
             # retrieving org vdc compute policies
             allOrgVDCComputePolicesList = self.getOrgVDCComputePolicies()
