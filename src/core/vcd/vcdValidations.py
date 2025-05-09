@@ -5940,6 +5940,9 @@ class VCDMigrationValidation:
             logger.info('Validating isolated vApp networks with DHCP enabled')
             self.validateDHCPOnIsolatedvAppNetworks(sourceOrgVDCId, self.orgVdcInput.get('EdgeGatewayDeploymentEdgeCluster', None), nsxtObj)
 
+            logger.info('Validating IP Conflict of Isolated DHCP Listener IP with VM IP Address')
+            self.ValidateIsolatedIPConflict(sourceOrgVDCId)
+
             logger.info("Validating Independent Disks")
             self.validateIndependentDisks(sourceOrgVDCId)
 
@@ -7842,3 +7845,46 @@ class VCDMigrationValidation:
         """Return True if this network is a subnet of other."""
         return (b.network_address <= a.network_address and
                 b.broadcast_address >= a.broadcast_address)
+
+
+    @isSessionExpired
+    def ValidateIsolatedIPConflict(self, sourceOrgVDCId):
+        try:
+            allVappList = self.getOrgVDCvAppsList(sourceOrgVDCId)
+            vm_ip_addresses = []
+            # iterating over the vapps in the source org vdc
+            for eachVapp in allVappList:
+                # get api call to get the vapp details
+                response = self.restClientObj.get(eachVapp['@href'], self.headers)
+                responseDict = self.vcdUtils.parseXml(response.content)
+                if response.status_code == requests.codes.ok:
+                    for vm in listify(responseDict['VApp']['Children']['Vm']):
+                        for vm_ip in listify(
+                                vm.get('NetworkConnectionSection', {}).get('NetworkConnection', {}).get('IpAddress')):
+                            vm_ip_addresses.append(vm_ip)
+                else:
+                    raise Exception('Error occurred while retrieving fencing details due to {}'.format(
+                        responseDict['error']['@message']))
+
+            orgVdcNetworkList = self.getOrgVDCNetworks(sourceOrgVDCId, 'sourceOrgVDCNetworks', sharedNetwork=True,
+                                                       saveResponse=False)
+            for orgVdcNetwork in orgVdcNetworkList:
+                if orgVdcNetwork['networkType'] == "ISOLATED":
+                    url = "{}{}".format(vcdConstants.OPEN_API_URL.format(self.ipAddress),
+                                        vcdConstants.ORG_VDC_NETWORK_DHCP.format(orgVdcNetwork['id']))
+                    response = self.restClientObj.get(url, self.headers)
+                    if response.status_code == requests.codes.ok:
+                        responseDict1 = response.json()
+                        if responseDict1.get('dhcpPools'):
+                            start_ip_address = responseDict1['dhcpPools'][0]['ipRange']['startAddress']
+
+                            for vm_ip in vm_ip_addresses:
+                                if vm_ip == start_ip_address:
+                                    logger.debug(
+                                        f"VM IP ({vm_ip}) and DHCP start IP ({start_ip_address}) are the same!")
+                                else:
+                                    logger.debug(
+                                        f"OK: VM IP ({vm_ip}) and DHCP start IP ({start_ip_address}) are different.")
+        except Exception as e:
+            logger.error(f"Exception in Validate Isolated IP Conflict: {str(e)}")
+            raise

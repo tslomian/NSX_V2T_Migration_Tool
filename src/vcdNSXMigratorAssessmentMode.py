@@ -176,6 +176,7 @@ class VMwareCloudDirectorNSXMigratorAssessmentMode():
                     'Validating VMs in vApp are not connected to media': [vcdValidationObj.validateVappVMsMediaNotConnected, sourceOrgVDCId, True],
                     'Validating routed vApp networks': [vcdValidationObj.validateRoutedVappNetworks, sourceOrgVDCId, False, nsxtObj],
                     'Validating vApps isolated vApp networks with DHCP enabled': [vcdValidationObj.validateDHCPOnIsolatedvAppNetworks, sourceOrgVDCId, edgeGatewayDeploymentEdgeCluster, nsxtObj],
+                    'Validating IP Conflict of Isolated DHCP Listener IP with VM IP Address': [vcdValidationObj.ValidateIsolatedIPConflict, sourceOrgVDCId],
                     'Validating Independent Disks': [vcdValidationObj.validateIndependentDisks, sourceOrgVDCId, False],
                     'Validating a VM does not have independent disks with different storage policies when fast provisioning is enabled': [vcdValidationObj.validateNamedDiskWithFastProvisioned, sourceOrgVDCId],
                 })
