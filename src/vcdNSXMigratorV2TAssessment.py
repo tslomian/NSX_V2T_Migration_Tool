@@ -70,6 +70,7 @@ EDGE_GW_SERVICES_VALIDATIONS = {
     'IPsec: Route based session type': 2,
     'IPsec: Unsupported Encryption Algorithm': 1,
     'IPsec: DNAT rules not supported with Policy-based session type': 1,
+    'IPsec: Multiple peer endpoint': 1,
     'OSPF routing protocol': 2,
     'User-defined Static Routes': 1,
     'LoadBalancer: VIP IP address conflict': 1,
@@ -710,6 +711,8 @@ class VMwareCloudDirectorNSXMigratorV2T:
                                                 orgVDCResult["IPsec: Unsupported Encryption Algorithm"] = True
                                             if 'overlaps DNAT rule with translated IP' in result:
                                                 orgVDCResult["IPsec: DNAT rules not supported with Policy-based session type"] = True
+                                            if "Multiple IPsec VPN with same local endpoint and peer endpoint is unsupported" in result:
+                                                orgVDCResult["IPsec: Multiple peer endpoint"] = True
                                         if serviceName == "Routing":
                                             if "OSPF routing protocol" in result:
                                                 orgVDCResult["OSPF routing protocol"] = True
