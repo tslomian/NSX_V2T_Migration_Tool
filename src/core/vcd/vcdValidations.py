@@ -4379,8 +4379,22 @@ class VCDMigrationValidation:
             return []
 
         errorList = list()
+        seen_ip_pairs = set()
         nsxvCertificateStore = None
         for site in listify(responseDict['sites']['sites']):
+            local_ip = site.get("localIp")
+            peer_ip = site.get("peerIp")
+
+            # Tuple to store both localIp and peerIp together
+            ip_pair = (local_ip, peer_ip)
+
+            if ip_pair in seen_ip_pairs:
+                errorList.append(
+                    f"Multiple IPsec VPN with same local endpoint {local_ip} and peer endpoint {peer_ip} is unsupported")
+                # break
+            else:
+                seen_ip_pairs.add(ip_pair)
+
             if site['ipsecSessionType'] == "policybasedsession":
                 natErrorList, natRulesPresent, _ = self.getEdgeGatewayNatConfig(edgeGatewayId)
                 localSubnets = site.get('localSubnets')
