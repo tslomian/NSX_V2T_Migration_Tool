@@ -7894,11 +7894,11 @@ class VCDMigrationValidation:
 
                             for vm_ip in vm_ip_addresses:
                                 if vm_ip == start_ip_address:
-                                    logger.debug(
-                                        f"VM IP ({vm_ip}) and DHCP start IP ({start_ip_address}) are the same!")
+                                    logger.error(
+                                        f"VM IP Address ({vm_ip}) and DHCP start IP Address ({start_ip_address}) are the same!")
                                 else:
                                     logger.debug(
-                                        f"OK: VM IP ({vm_ip}) and DHCP start IP ({start_ip_address}) are different.")
+                                        f"OK: VM IP Address ({vm_ip}) and DHCP start IP Address ({start_ip_address}) are different.")
         except Exception as e:
             logger.error(f"Exception in Validate Isolated IP Conflict: {str(e)}")
             raise
