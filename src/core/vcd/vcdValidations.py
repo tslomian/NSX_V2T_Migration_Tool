@@ -7852,6 +7852,7 @@ class VCDMigrationValidation:
         try:
             allVappList = self.getOrgVDCvAppsList(sourceOrgVDCId)
             vm_ip_addresses = []
+            errorList = list()
             # iterating over the vapps in the source org vdc
             for eachVapp in allVappList:
                 # get api call to get the vapp details
@@ -7880,11 +7881,11 @@ class VCDMigrationValidation:
 
                             for vm_ip in vm_ip_addresses:
                                 if vm_ip == start_ip_address:
-                                    logger.error(
-                                        f"VM IP Address ({vm_ip}) and DHCP start IP Address ({start_ip_address}) are the same!")
+                                    errorList.append(f"VM IP Address ({vm_ip}) and DHCP start IP Address ({start_ip_address}) are the same!")
                                 else:
                                     logger.debug(
                                         f"OK: VM IP Address ({vm_ip}) and DHCP start IP Address ({start_ip_address}) are different.")
+            return errorList
         except Exception as e:
             logger.error(f"Exception in Validate Isolated IP Conflict: {str(e)}")
             raise
