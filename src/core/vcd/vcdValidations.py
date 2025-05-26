@@ -5250,6 +5250,7 @@ class VCDMigrationValidation:
             if not values:
                 raise Exception("No vCD cell present to fetch vCD version information")
             vCDVersion = values[0].get("productVersion", None)
+
             if not vCDVersion:
                 raise Exception("Not able to fetch vCD version due to API response difference")
             elif version.parse(vCDVersion) < version.parse("10.4"):
@@ -7885,7 +7886,8 @@ class VCDMigrationValidation:
                                 else:
                                     logger.debug(
                                         f"OK: VM IP Address ({vm_ip}) and DHCP start IP Address ({start_ip_address}) are different.")
-            return errorList
+            if errorList:
+                raise Exception('; '.join(errorList))
         except Exception as e:
             logger.error(f"Exception in Validate Isolated IP Conflict: {str(e)}")
             raise
