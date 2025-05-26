@@ -24,8 +24,7 @@ from itertools import zip_longest
 from functools import reduce
 import src.core.vcd.vcdConstants as vcdConstants
 from src.commonUtils.utils import listify, urn_id
-from src.core.vcd.vcdValidations import (
-    isSessionExpired, description, remediate, remediate_threaded, getSession)
+from src.core.vcd.vcdValidations import (isSessionExpired, description, remediate, remediate_threaded, getSession)
 from src.core.vcd.vcdConfigureEdgeGatewayServices import ConfigureEdgeGatewayServices
 from pkg_resources._vendor.packaging import version
 logger = logging.getLogger('mainLogger')
