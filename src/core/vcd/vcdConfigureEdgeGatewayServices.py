@@ -3401,6 +3401,8 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
                         portList.append(str(p))
                 else:
                     portList.append(_port)
+            logger.info(f"portlist: {portList}")
+
             for port in portList:
                 payloadDict = {
                     "ruleId": ruleName,
@@ -3414,6 +3416,8 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
                     "translatedAddress": sourceIP,
                     "dnatExternalPort": port
                 }
+
+                logger.info(f"payloadDict: {payloadDict}")
                 # Filepath of template json file
                 filePath = os.path.join(vcdConstants.VCD_ROOT_DIRECTORY, 'template.json')
 
@@ -3422,6 +3426,7 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
                                                           componentName=vcdConstants.COMPONENT_NAME,
                                                           templateName=vcdConstants.CREATE_DNAT_TEMPLATE, apiVersion=self.version)
                 payloadData = json.loads(payloadData)
+                logger.info(f"payloadData: {payloadData}")
 
                 # Deleting version key from payload data as it is not required
                 del payloadData['version']
