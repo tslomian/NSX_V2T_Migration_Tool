@@ -2556,6 +2556,7 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
                                                       componentName=vcdConstants.COMPONENT_NAME,
                                                       templateName=vcdConstants.CREATE_DNAT_TEMPLATE, apiVersion=self.version)
             payloadData = json.loads(payloadData)
+
             # adding dnatExternalPort port profile to payload data
             if float(self.version) <= float(vcdConstants.API_VERSION_PRE_ZEUS):
                 payloadData["internalPort"] = sourceNATRule['originalPort'] if sourceNATRule['originalPort'] != 'any' else ''
@@ -3427,7 +3428,8 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
                                                           templateName=vcdConstants.CREATE_DNAT_TEMPLATE, apiVersion=self.version)
                 payloadData = json.loads(payloadData)
                 logger.info(f"payloadData: {payloadData}")
-
+                import pdb
+                pdb.set_trace()
                 # Deleting version key from payload data as it is not required
                 del payloadData['version']
 

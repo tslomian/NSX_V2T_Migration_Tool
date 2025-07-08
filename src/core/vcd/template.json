@@ -119,8 +119,6 @@
       "logging": "{{loggingEnabled}}",
       "systemRule": false,
       "snatDestinationAddresses": " ",
-      "originalPort": "{{dnatExternalPort}}",
-      "translatedPort": "{{dnatExternalPort}}",
       "version": {
         "version": "{{version}}"
       }
