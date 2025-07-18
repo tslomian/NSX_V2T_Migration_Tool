@@ -946,7 +946,7 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
             if payloadData['ruleType'] == 'NO_SNAT':
                 payloadData['externalAddresses'] = ''
             self.headers["Content-Type"] = vcdConstants.OPEN_API_CONTENT_TYPE
-            logger.info(f"payloadData before API Call: {payloadData}")
+
             # post api call to configure nat services on target edge gateway
             response = self.restClientObj.post(url, self.headers, data=json.dumps(payloadData))
             if response.status_code == requests.codes.accepted:
@@ -2557,14 +2557,13 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
                                                       componentName=vcdConstants.COMPONENT_NAME,
                                                       templateName=vcdConstants.CREATE_DNAT_TEMPLATE, apiVersion=self.version)
             payloadData = json.loads(payloadData)
-            logger.info(f" Create NAT payloadData: {payloadData}")
+
             # adding dnatExternalPort port profile to payload data
             if float(self.version) <= float(vcdConstants.API_VERSION_PRE_ZEUS):
                 payloadData["internalPort"] = sourceNATRule['originalPort'] if sourceNATRule['originalPort'] != 'any' else ''
             else:
                 payloadData["dnatExternalPort"] = sourceNATRule['originalPort'] if sourceNATRule['originalPort'] != 'any' else ''
 
-            logger.info(f"payloadData with dnatExternalPort: {payloadData}")
             # From VCD v10.2.2, firewallMatch to external address to be provided for DNAT rules
             if float(self.version) >= float(vcdConstants.API_VERSION_ZEUS_10_2_2):
                 payloadData["firewallMatch"] = "MATCH_EXTERNAL_ADDRESS"
@@ -3404,7 +3403,6 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
                         portList.append(str(p))
                 else:
                     portList.append(_port)
-            logger.info(f"portlist: {portList}")
 
             for port in portList:
                 payloadDict = {
@@ -3420,7 +3418,6 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
                     "dnatExternalPort": port
                 }
 
-                logger.info(f"payloadDict: {payloadDict}")
                 # Filepath of template json file
                 filePath = os.path.join(vcdConstants.VCD_ROOT_DIRECTORY, 'template.json')
 
@@ -3429,9 +3426,7 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
                                                           componentName=vcdConstants.COMPONENT_NAME,
                                                           templateName=vcdConstants.CREATE_DNAT_TEMPLATE, apiVersion=self.version)
                 payloadData = json.loads(payloadData)
-                logger.info(f"payloadData: {payloadData}")
-                import pdb
-                pdb.set_trace()
+
                 # Deleting version key from payload data as it is not required
                 del payloadData['version']
 
@@ -3443,6 +3438,12 @@ class ConfigureEdgeGatewayServices(VCDMigrationValidation):
                 protocol_port_name, protocol_port_id = self._searchApplicationPortProfile(
                     applicationPortProfilesDict, 'tcp', port)
                 payloadData["applicationPortProfile"] = {"name": protocol_port_name, "id": protocol_port_id}
+
+                # adding dnatExternalPort port profile to payload data
+                if float(self.version) <= float(vcdConstants.API_VERSION_PRE_ZEUS):
+                    payloadData["internalPort"] = port
+                else:
+                    payloadData["dnatExternalPort"] = port
 
                 # From VCD v10.2.2, firewallMatch to external address to be provided for DNAT rules
                 if float(self.version) >= float(vcdConstants.API_VERSION_ZEUS_10_2_2):
