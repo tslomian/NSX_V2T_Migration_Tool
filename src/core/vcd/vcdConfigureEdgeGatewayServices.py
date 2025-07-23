@@ -21,10 +21,7 @@ import requests
 
 import src.core.vcd.vcdConstants as vcdConstants
 from src.commonUtils.utils import Utilities, listify
-from src.core.vcd.vcdValidations import (
-    VCDMigrationValidation, isSessionExpired, remediate, description, DfwRulesAbsentError, getSession,
-    ConfigurationError)
-
+from src.core.vcd.vcdValidations import (VCDMigrationValidation, isSessionExpired, remediate, description, DfwRulesAbsentError, getSession,ConfigurationError)
 logger = logging.getLogger('mainLogger')
 chunksOfList = Utilities.chunksOfList
 
