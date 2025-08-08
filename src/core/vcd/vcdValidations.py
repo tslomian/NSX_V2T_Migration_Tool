@@ -7875,12 +7875,12 @@ class VCDMigrationValidation:
                 responseDict = self.vcdUtils.parseXml(response.content)
                 if response.status_code == requests.codes.ok:
                     for vm in listify(responseDict['VApp']['Children']['Vm']):
-                        if vm.get('_network' == 'ISOLATED'):
+                        if vm.get('_network') == 'ISOLATED':
                             for vm_ip in listify(
                                     vm.get('NetworkConnectionSection', {}).get('NetworkConnection', {}).get(
                                         'IpAddress')):
                                 vm_ip_addresses.append(vm_ip)
-                        elif vm.get('_network' == 'DIRECT' and 'IpAddressAllocationMode' == 'MANUAL'):
+                        elif vm.get('_network') == 'DIRECT' and vm.get('IpAddressAllocationMode') == 'MANUAL':
                             for vm_ip in listify(
                                     vm.get('NetworkConnectionSection', {}).get('NetworkConnection', {}).get(
                                         'IpAddress')):
