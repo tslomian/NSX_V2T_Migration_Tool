@@ -7875,9 +7875,16 @@ class VCDMigrationValidation:
                 responseDict = self.vcdUtils.parseXml(response.content)
                 if response.status_code == requests.codes.ok:
                     for vm in listify(responseDict['VApp']['Children']['Vm']):
-                        for vm_ip in listify(
-                                vm.get('NetworkConnectionSection', {}).get('NetworkConnection', {}).get('IpAddress')):
-                            vm_ip_addresses.append(vm_ip)
+                        if vm.get('_network' == 'ISOLATED'):
+                            for vm_ip in listify(
+                                    vm.get('NetworkConnectionSection', {}).get('NetworkConnection', {}).get(
+                                        'IpAddress')):
+                                vm_ip_addresses.append(vm_ip)
+                        elif vm.get('_network' == 'DIRECT' and 'IpAddressAllocationMode' == 'MANUAL'):
+                            for vm_ip in listify(
+                                    vm.get('NetworkConnectionSection', {}).get('NetworkConnection', {}).get(
+                                        'IpAddress')):
+                                vm_ip_addresses.append(vm_ip)
                 else:
                     raise Exception('Error occurred while retrieving fencing details due to {}'.format(
                         responseDict['error']['@message']))
@@ -7896,10 +7903,26 @@ class VCDMigrationValidation:
 
                             for vm_ip in vm_ip_addresses:
                                 if vm_ip == start_ip_address:
-                                    errorList.append(f"VM IP Address ({vm_ip}) and DHCP start IP Address ({start_ip_address}) are the same!")
+                                    errorList.append(
+                                        f"VM IP Address ({vm_ip}) and DHCP start IP Address ({start_ip_address}) are the same!")
                                 else:
                                     logger.debug(
                                         f"OK: VM IP Address ({vm_ip}) and DHCP start IP Address ({start_ip_address}) are different.")
+
+                elif orgVdcNetwork['networkType'] == 'DIRECT':
+                    url = "{}{}".format(vcdConstants.OPEN_API_URL.format(self.ipAddress),
+                                        vcdConstants.ALL_ORG_VDC_NETWORKS.format(orgVdcNetwork['id']))
+                    response = self.restClientObj.get(url, self.headers)
+                    if response.status_code == requests.codes.ok:
+                        responseDict1 = response.json()
+                        first_ipaddress = responseDict1["subnets"]["values"][0]["ipRanges"]["values"][0]["startAddress"]
+                        for vm_ip in vm_ip_addresses:
+                            if vm_ip == first_ipaddress:
+                                errorList.append(
+                                    f"Manual assigned IP Address ({vm_ip}) and first IP of direct network ({first_ipaddress}) unsupported.")
+                            else:
+                                logger.info(f"Successfully assignment of manual IP Address ({vm_ip}).")
+
             if errorList:
                 raise Exception('; '.join(errorList))
         except Exception as e:
