@@ -7874,6 +7874,7 @@ class VCDMigrationValidation:
                 response = self.restClientObj.get(eachVapp['@href'], self.headers)
                 responseDict = self.vcdUtils.parseXml(response.content)
                 if response.status_code == requests.codes.ok:
+                    logger.debug(f"ResponseDict for VApp Nw:({responseDict}).")
                     for vm in listify(responseDict['VApp']['Children']['Vm']):
                         if vm.get('_network') == 'ISOLATED':
                             for vm_ip in listify(
@@ -7898,6 +7899,7 @@ class VCDMigrationValidation:
                     response = self.restClientObj.get(url, self.headers)
                     if response.status_code == requests.codes.ok:
                         responseDict1 = response.json()
+                        logger.debug(f"ResponseDict for Isolated Nw:({responseDict1}).")
                         if responseDict1.get('dhcpPools'):
                             start_ip_address = responseDict1['dhcpPools'][0]['ipRange']['startAddress']
 
@@ -7914,8 +7916,9 @@ class VCDMigrationValidation:
                                         vcdConstants.ALL_ORG_VDC_NETWORKS.format(orgVdcNetwork['id']))
                     response = self.restClientObj.get(url, self.headers)
                     if response.status_code == requests.codes.ok:
-                        responseDict1 = response.json()
-                        first_ipaddress = responseDict1["subnets"]["values"][0]["ipRanges"]["values"][0]["startAddress"]
+                        responseDict2 = response.json()
+                        logger.debug(f"ResponseDict for Direct Nw:({responseDict2}).")
+                        first_ipaddress = responseDict2["subnets"]["values"][0]["ipRanges"]["values"][0]["startAddress"]
                         for vm_ip in vm_ip_addresses:
                             if vm_ip == first_ipaddress:
                                 errorList.append(
