@@ -7912,8 +7912,10 @@ class VCDMigrationValidation:
                                         f"OK: VM IP Address ({vm_ip}) and DHCP start IP Address ({start_ip_address}) are different.")
 
                 elif orgVdcNetwork['networkType'] == 'DIRECT':
-                    url = "{}{}".format(vcdConstants.OPEN_API_URL.format(self.ipAddress),
-                                        vcdConstants.ALL_ORG_VDC_NETWORKS.format(orgVdcNetwork['id']))
+                    url = "{}{}{}".format(
+                        vcdConstants.OPEN_API_URL.format(self.ipAddress),
+                        vcdConstants.ALL_ORG_VDC_NETWORKS,
+                        vcdConstants.QUERY_EXTERNAL_NETWORK.format(orgVdcNetwork['parentNetworkId']['id']))
                     response = self.restClientObj.get(url, self.headers)
                     if response.status_code == requests.codes.ok:
                         responseDict2 = response.json()
