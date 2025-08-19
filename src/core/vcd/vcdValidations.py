@@ -7920,7 +7920,8 @@ class VCDMigrationValidation:
                     if response.status_code == requests.codes.ok:
                         responseDict2 = response.json()
                         logger.debug(f"ResponseDict for Direct Nw:({responseDict2}).")
-                        first_ipaddress = responseDict2["subnets"]["values"][0]["ipRanges"]["values"][0]["startAddress"]
+                        first_ipaddress = (responseDict2.get("values", [{}])[0].get("subnets", {}).get("values", [{}])[0].get("ipRanges", {}).get("values", [{}])[0].get("startAddress"))
+
                         for vm_ip in vm_ip_addresses:
                             if vm_ip == first_ipaddress:
                                 errorList.append(
