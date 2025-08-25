@@ -7876,16 +7876,23 @@ class VCDMigrationValidation:
                 if response.status_code == requests.codes.ok:
                     logger.debug(f"ResponseDict for VApp Nw:({responseDict}).")
                     for vm in listify(responseDict['VApp']['Children']['Vm']):
-                        if vm.get('_network') == 'ISOLATED':
-                            for vm_ip in listify(
-                                    vm.get('NetworkConnectionSection', {}).get('NetworkConnection', {}).get(
-                                        'IpAddress')):
-                                vm_ip_addresses.append(vm_ip)
-                        elif vm.get('_network') == 'DIRECT' and vm.get('IpAddressAllocationMode') == 'MANUAL':
-                            for vm_ip in listify(
-                                    vm.get('NetworkConnectionSection', {}).get('NetworkConnection', {}).get(
-                                        'IpAddress')):
-                                vm_ip_addresses.append(vm_ip)
+                        net_conns = listify(
+                            vm.get('NetworkConnectionSection', {}).get('NetworkConnection')
+                        )
+
+                        for net_conn in net_conns:
+                            net_type = net_conn.get('@network')
+                            logger.debug(f"Network Type:({net_type}).")
+                            ip_mode = net_conn.get('IpAddressAllocationMode')
+                            logger.debug(f"Allocation mode:({ip_mode}).")
+                            ip_list = listify(net_conn.get('IpAddress'))
+                            logger.debug(f"IP Adddres:({ip_list}).")
+
+                            if net_type == 'ISOLATED':
+                                vm_ip_addresses.extend(ip_list)
+
+                            elif net_type == 'DIRECT' and ip_mode == 'MANUAL':
+                                vm_ip_addresses.extend(ip_list)
                 else:
                     raise Exception('Error occurred while retrieving fencing details due to {}'.format(
                         responseDict['error']['@message']))
@@ -7920,8 +7927,7 @@ class VCDMigrationValidation:
                     if response.status_code == requests.codes.ok:
                         responseDict2 = response.json()
                         logger.debug(f"ResponseDict for Direct Nw:({responseDict2}).")
-                        first_ipaddress = (responseDict2.get("values", [{}])[0].get("subnets", {}).get("values", [{}])[0].get("ipRanges", {}).get("values", [{}])[0].get("startAddress"))
-
+                        first_ipaddress = responseDict2["subnets"]["values"][0]["ipRanges"]["values"][0]["startAddress"]
                         for vm_ip in vm_ip_addresses:
                             if vm_ip == first_ipaddress:
                                 errorList.append(
