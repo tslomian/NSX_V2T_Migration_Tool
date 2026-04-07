@@ -9,7 +9,7 @@ Description : Module performs VMware Cloud Director validations related for NSX-
 import inspect
 from functools import wraps
 from collections import OrderedDict, defaultdict, Counter
-from pkg_resources._vendor.packaging import version
+from packaging import version
 import copy
 import json
 import logging
