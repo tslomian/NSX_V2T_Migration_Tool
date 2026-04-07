@@ -4,7 +4,7 @@ VCloudDirector:
     ipAddress: cpsbu-tpm-vcd.eng.vmware.com # IP/FQDN of VMware Cloud Director
     username: administrator # VMware Cloud Director system administrator login name
     verify: False # Certificate validation enabled
-    ForceAPIVersion: # (Optional) API version to use. If not specified, version is auto-detected from vCD server (e.g., "37.1", "37.2", "38.0")
+    forceAPIVersion: "38.1" # (Optional) API version to use. e.g., for migration compatibility with vCD 10.5.1 use: "38.1". If not specified, the highest supported API version will be auto-detected from vCD server.
   Organization:
     OrgName: Acme # Short name of the organization containing Org VDC to be migrated
   SourceOrgVDC:
