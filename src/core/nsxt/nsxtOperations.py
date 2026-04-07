@@ -18,7 +18,7 @@ import re
 import requests
 import threading
 import time
-from pkg_resources._vendor.packaging import version
+from packaging import version
 import src.core.nsxt.nsxtConstants as nsxtConstants
 
 
