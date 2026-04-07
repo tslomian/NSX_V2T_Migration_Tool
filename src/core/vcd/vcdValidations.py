@@ -234,11 +234,56 @@ class VCDMigrationValidation:
         vcdConstants.OPEN_API_CONTENT_TYPE = vcdConstants.OPEN_API_CONTENT_TYPE.format(self.version)
         self.lock = lockObj
 
+    def _getSupportedAPIVersions(self):
+        """
+        Description :   Retrieves list of all API versions supported by the vCD server
+        Returns     :   List of supported API versions (LIST)
+        """
+        try:
+            url = vcdConstants.GET_API_VERSION.format(self.ipAddress)
+            # get rest client object
+            restClientObj = RestAPIClient(verify=self.verify)
+            # get call to fetch supported api versions
+            getResponse = restClientObj.get(url, headers={'Accept': 'application/*+json'})
+            # get json response
+            responseDict = getResponse.json()
+            if getResponse.status_code == requests.codes.ok:
+                supportedVersions = [version['version'] for version in responseDict.get('versionInfo', [])]
+                logger.debug(f'Supported API versions from server: {supportedVersions}')
+                return supportedVersions
+            else:
+                raise Exception('Failed to fetch supported API versions due to error {}'.format(responseDict.get('message', 'Unknown error')))
+        except Exception:
+            raise
+
     def _getAPIVersion(self):
         """
         Description :   Method to get supported api version of VMware Cloud Director
+                        Checks for forced API version first, then fetches from server if not provided
+                        Validates that the forced version is supported by the server
         """
         try:
+            # Check for forced API version in input configuration
+            forcedVersion = None
+            if self.assessmentMode:
+                forcedVersion = self.inputDict.get('VCloudDirector', {}).get('forceAPIVersion')
+            else:
+                forcedVersion = self.inputDict.get('VCloudDirector', {}).get('Common', {}).get('forceAPIVersion')
+            
+            # Use forced version if provided
+            if forcedVersion:
+                # Get supported versions from server
+                supportedVersions = self._getSupportedAPIVersions()
+                
+                # Verify forced version is supported by server
+                if forcedVersion not in supportedVersions:
+                    raise Exception(f'forceAPIVersion "{forcedVersion}" is not supported by vCD server. '
+                                  f'Supported versions are: {", ".join(supportedVersions)}')
+                
+                logger.info(f'Using forced vCD API version: {forcedVersion}')
+                return forcedVersion
+            
+            # Fetch API version from vCD server (auto-detect)
             url = vcdConstants.GET_API_VERSION.format(self.ipAddress)
             # get rest client object
             restClientObj = RestAPIClient(verify=self.verify)
@@ -247,10 +292,12 @@ class VCDMigrationValidation:
             # get json response
             responseDict = getResponse.json()
             if getResponse.status_code == requests.codes.ok:
-                return responseDict['versionInfo'][-1]['version']
+                apiVersion = responseDict['versionInfo'][-1]['version']
+                logger.debug(f'Auto-detected vCD API version from server: {apiVersion}')
+                return apiVersion
             else:
                 raise Exception('Failed to fetch API version due to error {}'.format(responseDict['message']))
-        except:
+        except Exception:
             raise
 
     def vcdLogin(self):

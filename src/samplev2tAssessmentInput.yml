@@ -3,6 +3,7 @@ VCloudDirector:
   ipAddress: 10.196.235.27 # IP/FQDN of VMware Cloud Director
   username: administrator #  VMware Cloud Director system administrator login name
   verify: False # Certificate validation enabled
+  forceAPIVersion: # (Optional) API version to use. e.g., for vCD 10.6.1 use "38.1". If not specified, version is auto-detected from vCD server (e.g., "37.1", "37.2", "38.0")
 
 OrgVDC: # (optional) List of NSX-V backed organization VDC(s) to be assessed
   - test-vdc-1
