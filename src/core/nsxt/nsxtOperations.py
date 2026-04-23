@@ -214,7 +214,6 @@ class NSXTOperations():
             nsxtConstants.NSXT_HOST_POLICY_API.format(self.ipAddress),
             nsxtConstants.REALIZED_STATE_API.format(intent_path)
         )
-        time.sleep(1)
         while timeout < timeoutForTask:
             logger.debug(f'Checking realization state of {intent_path}')
             response = self.restClientObj.get(
@@ -238,8 +237,8 @@ class NSXTOperations():
             else:
                 raise Exception(f'Realization status failed with {response.status_code}')
 
-            time.sleep(5)
-            timeout += 5
+            time.sleep(3)
+            timeout += 3
 
         raise Exception(f'Timeout occurred while checking realization status for {intent_path}')
 
@@ -674,78 +673,104 @@ class NSXTOperations():
             threading.current_thread().name = "VerifyBridging"
 
             logger.info('Verifying bridging connectivity')
-            # Sleeping for 30 seconds before verifying bridging connectivity
-            time.sleep(30)
-            # get source edge gateway vm id
-            edgeVMIdList = [list(vcdObj.getEdgeVmId().values()) for vcdObj in vcdObjList]
+            # Loop-checking with timeout of 180 seconds instead of initial sleep
+            sleep_interval = 30
+            timeout = time.time() + 180
+            verification_successful = False
+            last_exception = None
 
-            sourceEdgeGatewayMacAddressList = []
-            for vcdObj, edgeVMList in zip(vcdObjList, edgeVMIdList):
-                # Handling corner case for continuation message
-                vcdObj.rollback.retry = True
-                for edgeVMId in edgeVMList:
-                    # get routed network interface details of the nsx-v edge vm using vcenter api's
-                    interfaceDetails = vcenterObj.getEdgeVmNetworkDetails(edgeVMId)
+            while time.time() < timeout:
+                try:
+                    # get source edge gateway vm id
+                    edgeVMIdList = [list(vcdObj.getEdgeVmId().values()) for vcdObj in vcdObjList]
 
-                    # get the source edge gateway mac address for routed networks
-                    sourceEdgeGatewayMacAddressList += vcdObj.getSourceEdgeGatewayMacAddress(interfaceDetails)
+                    sourceEdgeGatewayMacAddressList = []
+                    for vcdObj, edgeVMList in zip(vcdObjList, edgeVMIdList):
+                        # Handling corner case for continuation message
+                        vcdObj.rollback.retry = True
+                        for edgeVMId in edgeVMList:
+                            # get routed network interface details of the nsx-v edge vm using vcenter api's
+                            interfaceDetails = vcenterObj.getEdgeVmNetworkDetails(edgeVMId)
 
-            # Replacing thread name with the name bridging
-            threading.current_thread().name = "VerifyBridging"
+                            # get the source edge gateway mac address for routed networks
+                            sourceEdgeGatewayMacAddressList += vcdObj.getSourceEdgeGatewayMacAddress(interfaceDetails)
 
-            edgeNodeList = copy.deepcopy(self.rollback.apiData['edgeNodeList'])
-            macAddressList = []
-            for edgeNode in edgeNodeList:
-                url = nsxtConstants.NSXT_HOST_API_URL.format(self.ipAddress,
-                                                             nsxtConstants.UPDATE_TRANSPORT_NODE_API.format(edgeNode))
-                response = self.restClientObj.get(url=url, headers=nsxtConstants.NSXT_API_HEADER, auth=self.restClientObj.auth)
-                if response.status_code == requests.codes.ok:
-                    edgeNodeData = json.loads(response.content)
-                    url = nsxtConstants.NSXT_HOST_API_URL.format(self.ipAddress,
-                                                                 nsxtConstants.CREATE_BRIDGE_ENDPOINT_PROFILE)
-                    response = self.restClientObj.get(url=url, headers=nsxtConstants.NSXT_API_HEADER,
-                                                      auth=self.restClientObj.auth)
-                    if response.status_code == requests.codes.ok:
-                        data = json.loads(response.content)
-                        bridgeEndpointProfile = [response for response in data['results'] if edgeNodeData['id'] in response['display_name']]
-                        if bridgeEndpointProfile:
-                            bridgeEndpointProfileId = bridgeEndpointProfile[0]['id']
+                    # Replacing thread name with the name bridging
+                    threading.current_thread().name = "VerifyBridging"
+
+                    edgeNodeList = copy.deepcopy(self.rollback.apiData['edgeNodeList'])
+                    macAddressList = []
+                    for edgeNode in edgeNodeList:
+                        url = nsxtConstants.NSXT_HOST_API_URL.format(self.ipAddress,
+                                                                     nsxtConstants.UPDATE_TRANSPORT_NODE_API.format(edgeNode))
+                        response = self.restClientObj.get(url=url, headers=nsxtConstants.NSXT_API_HEADER, auth=self.restClientObj.auth)
+                        if response.status_code == requests.codes.ok:
+                            edgeNodeData = json.loads(response.content)
+                            url = nsxtConstants.NSXT_HOST_API_URL.format(self.ipAddress,
+                                                                         nsxtConstants.CREATE_BRIDGE_ENDPOINT_PROFILE)
+                            response = self.restClientObj.get(url=url, headers=nsxtConstants.NSXT_API_HEADER,
+                                                              auth=self.restClientObj.auth)
+                            if response.status_code == requests.codes.ok:
+                                data = json.loads(response.content)
+                                bridgeEndpointProfile = [response for response in data['results'] if edgeNodeData['id'] in response['display_name']]
+                                if bridgeEndpointProfile:
+                                    bridgeEndpointProfileId = bridgeEndpointProfile[0]['id']
+                                else:
+                                    raise Exception('Could not find the the bridge endpoint profile mapped with Edge node {}'.format(edgeNodeData['id']))
+                            url = nsxtConstants.NSXT_HOST_API_URL.format(self.ipAddress,
+                                                                         nsxtConstants.CREATE_BRIDGE_ENDPOINT_API)
+                            response = self.restClientObj.get(url=url, headers=nsxtConstants.NSXT_API_HEADER,
+                                                              auth=self.restClientObj.auth)
+                            if response.status_code == requests.codes.ok:
+                                data = json.loads(response.content)
+                                bridgeEndpoint = [response for response in data['results'] if response['bridge_endpoint_profile_id'] == bridgeEndpointProfileId]
+                                if bridgeEndpoint:
+                                    bridgeEndpointId = bridgeEndpoint[0]['id']
+                                else:
+                                    raise Exception('Could not find the the bridge endpoint attached with Bridge endpoint profile {}'.format(bridgeEndpointProfileId))
+                            sshObj = SshUtils(edgeNodeData['node_deployment_info']['ip_addresses'][0], 'admin', self.password)
+                            cmd = 'get l2bridge-port {} mac-sync-table'.format(bridgeEndpointId)
+                            output = sshObj.runCmdOnSsh(cmd, 150, checkExitStatus=True)
+                            output = output.decode().split('\n')
+                            logger.debug('Bridge ports mac sync table - {}'.format(output))
+                            regex = re.compile('MAC    ')
+                            output = [''.join(x.split()) for x in output if regex.match(x)]
+                            macAddressOutput = ''.join(output)
+                            if output:
+                                macAddressList.append(macAddressOutput)
+                    macAddressList = [macAddress for macAddress in macAddressList]
+                    verifiedOutput = [sourceEdgeGatewayMac for sourceEdgeGatewayMac in sourceEdgeGatewayMacAddressList for macAddress in macAddressList if sourceEdgeGatewayMac in macAddress]
+                    # if edge node and mac address present then only validate
+                    if edgeNodeList and sourceEdgeGatewayMacAddressList:
+                        if verifiedOutput and len(verifiedOutput) == len(sourceEdgeGatewayMacAddressList):
+                            logger.debug('Bridging Connectivity checks successful. Source Edge gateway MAC address learned by edge transport nodes')
+                            logger.info('Successfully verified bridging connectivity')
+                            verification_successful = True
+                            break
                         else:
-                            raise Exception('Could not find the the bridge endpoint profile mapped with Edge node {}'.format(edgeNodeData['id']))
-                    url = nsxtConstants.NSXT_HOST_API_URL.format(self.ipAddress,
-                                                                 nsxtConstants.CREATE_BRIDGE_ENDPOINT_API)
-                    response = self.restClientObj.get(url=url, headers=nsxtConstants.NSXT_API_HEADER,
-                                                      auth=self.restClientObj.auth)
-                    if response.status_code == requests.codes.ok:
-                        data = json.loads(response.content)
-                        bridgeEndpoint = [response for response in data['results'] if response['bridge_endpoint_profile_id'] == bridgeEndpointProfileId]
-                        if bridgeEndpoint:
-                            bridgeEndpointId = bridgeEndpoint[0]['id']
-                        else:
-                            raise Exception('Could not find the the bridge endpoint attached with Bridge endpoint profile {}'.format(bridgeEndpointProfileId))
-                    sshObj = SshUtils(edgeNodeData['node_deployment_info']['ip_addresses'][0], 'admin', self.password)
-                    cmd = 'get l2bridge-port {} mac-sync-table'.format(bridgeEndpointId)
-                    output = sshObj.runCmdOnSsh(cmd, 150, checkExitStatus=True)
-                    output = output.decode().split('\n')
-                    logger.debug('Bridge ports mac sync table - {}'.format(output))
-                    regex = re.compile('MAC    ')
-                    output = [''.join(x.split()) for x in output if regex.match(x)]
-                    macAddressOutput = ''.join(output)
-                    if output:
-                        macAddressList.append(macAddressOutput)
-            macAddressList = [macAddress for macAddress in macAddressList]
-            verifiedOutput = [sourceEdgeGatewayMac for sourceEdgeGatewayMac in sourceEdgeGatewayMacAddressList for macAddress in macAddressList if sourceEdgeGatewayMac in macAddress]
-            # if edge node and mac address present then only validate
-            if edgeNodeList and sourceEdgeGatewayMacAddressList:
-                if verifiedOutput and len(verifiedOutput) == len(sourceEdgeGatewayMacAddressList):
-                    logger.debug('Bridging Connectivity checks successful. Source Edge gateway MAC address learned by edge transport nodes')
-                    logger.info('Successfully verified bridging connectivity')
+                            last_exception = Exception('Bridging Connectivity checks failed. Source Edge gateway MAC address could not learned by edge nodes')
+                            logger.debug('Verification attempt failed. Retrying... Time remaining: {} seconds'.format(int(timeout - time.time())))
+                    else:
+                        logger.warning('Not verifying bridge connectivity checks as all networks are either Isolated/Distributed.')
+                        verification_successful = True
+                        break
+                except Exception as e:
+                    last_exception = e
+                    logger.debug('Verification check encountered error: {}. Retrying... Time remaining: {} seconds'.format(str(e), int(timeout - time.time())))
+
+                # Sleep before retrying
+                if time.time() < timeout:
+                    logger.warning('Sleeping for {} seconds before retrying verification checks.'.format(sleep_interval))
+                    time.sleep(sleep_interval)
+
+            # If verification was not successful by the time timeout is reached, raise exception
+            if not verification_successful:
+                if last_exception and 'Bridging Connectivity checks failed' in str(last_exception):
+                    raise last_exception
+                elif last_exception:
+                    raise last_exception
                 else:
-                    errorMessage = 'Bridging Connectivity checks failed. Source Edge gateway MAC address could not learned by edge nodes'
-                    logger.error(errorMessage)
-                    raise Exception(errorMessage)
-            else:
-                logger.warning('Not verifying bridge connectivity checks as all networks are either Isolated/Distributed.')
+                    raise Exception('Bridging connectivity verification timed out after {} seconds'.format(int(timeout - time.time())))
         except Exception:
             raise
         finally:
@@ -1109,7 +1134,9 @@ class NSXTOperations():
             filteredList = copy.deepcopy(targetOrgVdcNetworkList)
             filteredList = list(filter(lambda network: network['networkType'] != 'DIRECT' and network['networkType'] != 'OPAQUE', filteredList))
             if filteredList:
-
+                
+                logger.info("Configuring NSX-T Bridging for Org VDC networks: {}".format(', '.join([network['name'] for network in filteredList])))
+                
                 # create bridge transport zone
                 self.createTransportZone(vcdObjList[0])
 
