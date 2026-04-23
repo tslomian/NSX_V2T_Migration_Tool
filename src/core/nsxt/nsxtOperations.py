@@ -214,7 +214,6 @@ class NSXTOperations():
             nsxtConstants.NSXT_HOST_POLICY_API.format(self.ipAddress),
             nsxtConstants.REALIZED_STATE_API.format(intent_path)
         )
-        time.sleep(1)
         while timeout < timeoutForTask:
             logger.debug(f'Checking realization state of {intent_path}')
             response = self.restClientObj.get(
@@ -238,8 +237,8 @@ class NSXTOperations():
             else:
                 raise Exception(f'Realization status failed with {response.status_code}')
 
-            time.sleep(5)
-            timeout += 5
+            time.sleep(3)
+            timeout += 3
 
         raise Exception(f'Timeout occurred while checking realization status for {intent_path}')
 
