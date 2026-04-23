@@ -237,8 +237,8 @@ class NSXTOperations():
             else:
                 raise Exception(f'Realization status failed with {response.status_code}')
 
-            time.sleep(10)
-            timeout += 10
+            time.sleep(5)
+            timeout += 5
 
         raise Exception(f'Timeout occurred while checking realization status for {intent_path}')
 
