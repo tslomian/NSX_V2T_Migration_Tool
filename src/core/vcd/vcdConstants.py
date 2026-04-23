@@ -250,7 +250,7 @@ VAPP_NETWORK_CONFIGURATION = "vApp/vapp-{}/networkConfigSection"
 VCD_CREATION_TIMEOUT = 360.0
 
 # vcd task operations interval
-VCD_CREATION_INTERVAL = 10.0
+VCD_CREATION_INTERVAL = 3.0
 
 # api template names:-
 # create org vdc network template name used in template.json

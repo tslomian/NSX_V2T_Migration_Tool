@@ -673,8 +673,8 @@ class NSXTOperations():
             threading.current_thread().name = "VerifyBridging"
 
             logger.info('Verifying bridging connectivity')
-            # Sleeping for 180 seconds before verifying bridging connectivity
-            time.sleep(180)
+            # Sleeping for 30 seconds before verifying bridging connectivity
+            time.sleep(30)
             # get source edge gateway vm id
             edgeVMIdList = [list(vcdObj.getEdgeVmId().values()) for vcdObj in vcdObjList]
 
