@@ -214,6 +214,7 @@ class NSXTOperations():
             nsxtConstants.NSXT_HOST_POLICY_API.format(self.ipAddress),
             nsxtConstants.REALIZED_STATE_API.format(intent_path)
         )
+        time.sleep(1)
         while timeout < timeoutForTask:
             logger.debug(f'Checking realization state of {intent_path}')
             response = self.restClientObj.get(
