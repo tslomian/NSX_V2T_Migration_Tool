@@ -4568,6 +4568,7 @@ class VCDMigrationValidation:
             entityName = f" for {entityName}"
 
         timeout = 0.0
+        time.sleep(1)
         # Get the task details
         output = ''
         try:
