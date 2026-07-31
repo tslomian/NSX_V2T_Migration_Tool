@@ -698,6 +698,9 @@ class NSXTOperations():
                     # Replacing thread name with the name bridging
                     threading.current_thread().name = "VerifyBridging"
 
+                    # Initial sleep of 30 seconds before starting the verification checks to allow edge nodes to learn the mac address
+                    logger.info('verifyBridgeConnectivity: Sleeping for 30 seconds before starting the verification checks to allow edge nodes to learn the mac address.')
+                    time.sleep(30)
                     edgeNodeList = copy.deepcopy(self.rollback.apiData['edgeNodeList'])
                     macAddressList = []
                     for edgeNode in edgeNodeList:
