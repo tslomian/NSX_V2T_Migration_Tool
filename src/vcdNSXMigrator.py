@@ -71,6 +71,7 @@ class VMwareCloudDirectorNSXMigrator():
         self.assessmentMode = None
         self.v2tAssessment = None
         self.userInputFilePath = None
+        self.vcdApiVersion = None
         # List of workflows to execute
         self.executeList = mainConstants.VALID_EXECUTE_VALUES
         # List of workflows to skip
@@ -104,6 +105,8 @@ class VMwareCloudDirectorNSXMigrator():
                             help=f"Comma separated values of steps to SKIP while running migration/precheck. Allowed values - [{', '.join(mainConstants.VALID_SKIP_VALUES)}] (OPTIONAL ARGUMENT)", required=False)
         parser.add_argument("-e", "--execute", dest="execute", default=False, nargs="?",
                             help=f"Comma separated values of steps to EXECUTE while running migration/precheck. Allowed values - [{', '.join(mainConstants.VALID_EXECUTE_VALUES)}] (OPTIONAL ARGUMENT)", required=False)
+        parser.add_argument("--vcd-api-version", dest="vcdApiVersion",
+                            help="Force a specific vCD API version (e.g., 35.0, 36.0, 37.0) (OPTIONAL ARGUMENT)", required=False)
 
         args = parser.parse_args()
         # Set the execution mode flag based in the input arguments passed
@@ -136,8 +139,27 @@ class VMwareCloudDirectorNSXMigrator():
         self.passFile = args.passwordFilePath
         # if rollback argument is provided then rollback is retried from its last failed state
         self.retryRollback = args.rollback
+        # if vcd-api-version argument is provided then force that API version
+        if args.vcdApiVersion:
+            self.vcdApiVersion = args.vcdApiVersion
 
         self.renderInputFile()
+
+        # Inject forced vCD API version into inputDict if provided via CLI
+        # NOTE: VCDMigrationValidation is constructed with assessmentMode=True only for
+        # --v2tAssessment (flat 'VCloudDirector' keys); Main and --preCheck both go through
+        # initialization() -> VCloudDirectorOperations without assessmentMode=True, so they
+        # use the nested 'VCloudDirector.Common' structure. Branch on self.v2tAssessment,
+        # not self.assessmentMode (which tracks --preCheck), to match that.
+        if self.vcdApiVersion:
+            if 'VCloudDirector' not in self.inputDict:
+                self.inputDict['VCloudDirector'] = {}
+            if self.v2tAssessment:
+                self.inputDict['VCloudDirector']['forceAPIVersion'] = self.vcdApiVersion
+            else:
+                if 'Common' not in self.inputDict['VCloudDirector']:
+                    self.inputDict['VCloudDirector']['Common'] = {}
+                self.inputDict['VCloudDirector']['Common']['forceAPIVersion'] = self.vcdApiVersion
 
         # Initialize logger object with the migrator execution mode
         self.loggerObj = Logger(self.executionMode, self.inputDict)

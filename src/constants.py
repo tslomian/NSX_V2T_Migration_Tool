@@ -14,7 +14,7 @@ rootDir = os.path.dirname(os.path.abspath(__file__))    # src
 
 parentRootDir = Path(__file__).parent.parent            # vcd-migration
 
-VALID_CLI_OPTIONS = ["--cleanup", "--help"]
+VALID_CLI_OPTIONS = ["--cleanup", "--help", "--vcd-api-version"]
 
 # Regular expression for validation of FQDN
 FQDN_REGEX = "(?!-)[A-Z\d-]{1,63}(?<!-)$"
