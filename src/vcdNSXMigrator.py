@@ -356,6 +356,12 @@ class VMwareCloudDirectorNSXMigrator():
                             if sourceOrgVdc.get('LegacyDirectNetwork') and not isinstance(
                                     sourceOrgVdc.get('LegacyDirectNetwork'), bool):
                                 errorInputDict[dictKey] = "Value must be boolean i.e either True or False."
+                            bridgedNetworks = sourceOrgVdc.get('BridgedNetworks')
+                            if 'BridgedNetworks' in sourceOrgVdc and bridgedNetworks is not None and (
+                                    not isinstance(bridgedNetworks, list) or
+                                    not all(isinstance(name, str) and name for name in bridgedNetworks)):
+                                errorInputDict["{}['BridgedNetworks']".format(dictKey)] = \
+                                    "Value must be a list of source Org VDC network names."
 
         if not isinstance(self.inputDict['VCloudDirector'].get('SourceOrgVDC'), list):
             errorInputDict["VCloudDirector['SourceOrgVDC']"] = 'Value should be list'
@@ -862,12 +868,12 @@ class VMwareCloudDirectorNSXMigrator():
         # Check if bridging is to be performed or not
         if mainConstants.BRIDGING_KEYWORD in self.executeList:
             # Getting source org vdc network list
-            orgVdcNetworkList = list()
+            filteredList = list()
             for orgVDCId, vcdObj in zip([data["id"] for data in self.orgVDCData.values()], self.vcdObjList):
-                orgVdcNetworkList += vcdObj.retrieveNetworkListFromMetadata(orgVDCId, orgVDCType='source')
-            # filtering the org vdc list as direct networks do not need to be bridged
-            filteredList = copy.deepcopy(orgVdcNetworkList)
-            filteredList = list(filter(lambda network: network['networkType'] != 'DIRECT', filteredList))
+                # direct networks do not need to be bridged, networks not in 'BridgedNetworks' are not bridged
+                filteredList += vcdObj.filterBridgedNetworks(
+                    [network for network in vcdObj.retrieveNetworkListFromMetadata(orgVDCId, orgVDCType='source')
+                     if network['networkType'] != 'DIRECT'])
             if filteredList:
                 # Perform checks related to bridging
                 orgVDCIDList = [data["id"] for data in self.orgVDCData.values()]
@@ -894,15 +900,20 @@ class VMwareCloudDirectorNSXMigrator():
     def runBridging(self):
         # Check if bridging is to be performed or not
         if mainConstants.BRIDGING_KEYWORD in self.executeList:
-            orgVdcNetworkList = list()
+            orgVdcNetworkList, bridgedList = list(), list()
             for orgVDCId, vcdObj in zip([data["id"] for data in self.orgVDCData.values()], self.vcdObjList):
-                orgVdcNetworkList += vcdObj.retrieveNetworkListFromMetadata(orgVDCId, orgVDCType='source')
+                networkList = vcdObj.retrieveNetworkListFromMetadata(orgVDCId, orgVDCType='source')
+                orgVdcNetworkList += networkList
+                # direct networks do not need to be bridged, networks not in 'BridgedNetworks' are not bridged
+                bridgedList += vcdObj.filterBridgedNetworks(
+                    [network for network in networkList if network['networkType'] != 'DIRECT'])
             # filtering the org vdc list as direct networks do not need to be bridged
-            filteredList = copy.deepcopy(orgVdcNetworkList)
-            filteredList = list(filter(lambda network: network['networkType'] != 'DIRECT', filteredList))
+            filteredList = [network for network in orgVdcNetworkList if network['networkType'] != 'DIRECT']
 
             # only if org vdc networks exist bridging will be configured
-            if filteredList:
+            if filteredList and not bridgedList:
+                self.consoleLogger.warning('Skipping the NSXT Bridging configuration and connectivity verification check as no network is listed in "BridgedNetworks"')
+            elif filteredList:
                 # Configuring Bridging
                 self.nsxtObjList[0].configureNSXTBridging(self.vcdObjList, self.vcenterObj)
                 # verify bridge connectivity

@@ -2217,6 +2217,22 @@ class VCDMigrationValidation:
         else:
             raise Exception('Failed to get static routing configuration of target edge gateway {}'.format(edgeGatewayName))
 
+    def filterBridgedNetworks(self, networkList, isTarget=False):
+        """
+        Description :   Keeps only the networks listed in 'BridgedNetworks' of the Org VDC user input.
+                        If 'BridgedNetworks' is not provided all networks are kept, if it is empty no network is kept.
+        Parameters  :   networkList - List of Org VDC networks (LIST)
+                        isTarget    - True if networkList holds target networks, which carry the '-v2t' suffix (BOOL)
+        Returns     :   Filtered list of Org VDC networks (LIST)
+        """
+        if 'BridgedNetworks' not in (self.orgVdcInput or {}):
+            return networkList
+        bridgedNetworks = self.orgVdcInput['BridgedNetworks'] or []
+        suffix = '-v2t'
+        return [network for network in networkList
+                if (network['name'][:-len(suffix)] if isTarget and network['name'].endswith(suffix)
+                    else network['name']) in bridgedNetworks]
+
     @isSessionExpired
     def retrieveNetworkListFromMetadata(self, orgVdcId, orgVDCType='source', dfwStatus=False):
         """
@@ -2519,6 +2535,18 @@ class VCDMigrationValidation:
                 logger.debug("Validated Successfully, No Source Org VDC Networks are shared")
         except Exception:
             raise
+
+    def validateBridgedNetworks(self, orgVdcNetworkList):
+        """
+        Description :   Validates that every network listed in 'BridgedNetworks' is a non direct source Org VDC network
+        Parameters  :   orgVdcNetworkList   -   list of source org vdc networks (LIST)
+        """
+        bridgedNetworks = (self.orgVdcInput or {}).get('BridgedNetworks') or []
+        existingNames = [network['name'] for network in orgVdcNetworkList if network['networkType'] != 'DIRECT']
+        invalidNames = [name for name in bridgedNetworks if name not in existingNames]
+        if invalidNames:
+            raise Exception("Networks {} listed in 'BridgedNetworks' do not exist as non direct networks in "
+                            "source Org VDC '{}'".format(', '.join(invalidNames), self.orgVdcInput['OrgVDCName']))
 
     @isSessionExpired
     def validateOrgVDCNetworkDirect(self, orgVdcNetworkList, transportZone, nsxtObj):
@@ -5711,9 +5739,11 @@ class VCDMigrationValidation:
         """
         try:
             orgVdcNetworkList = list()
-            for sourceOrgVDCId in orgVDCIDList:
-                orgVdcNetworkList += self.getOrgVDCNetworks(sourceOrgVDCId, 'sourceOrgVDCNetworks', saveResponse=False)
-            orgVdcNetworkList = list(filter(lambda network: network['networkType'] != 'DIRECT', orgVdcNetworkList))
+            for sourceOrgVDCId, vcdObj in zip(orgVDCIDList, vcdObjList):
+                # networks not listed in 'BridgedNetworks' are not bridged
+                orgVdcNetworkList += vcdObj.filterBridgedNetworks(
+                    [network for network in self.getOrgVDCNetworks(sourceOrgVDCId, 'sourceOrgVDCNetworks', saveResponse=False)
+                     if network['networkType'] != 'DIRECT'])
             if orgVdcNetworkList:
                 # Checking if any org vdc has network pool with VXLAN backing
                 vxlanBackingPresent = any([True if
@@ -5888,6 +5918,10 @@ class VCDMigrationValidation:
             providerVDCImportedNeworkTransportZone = inputDict["VCloudDirector"].get("ImportedNetworkTransportZone", None)
 
             self.validateOrgVDCNetworkDirect(orgVdcNetworkList, providerVDCImportedNeworkTransportZone, nsxtObj)
+
+            # validating networks listed in BridgedNetworks
+            logger.info("Validating networks listed in 'BridgedNetworks'")
+            self.validateBridgedNetworks(orgVdcNetworkList)
 
             # validating NSX-V and NSX-T VNI pool ranges
             logger.info('Validating whether the source NSX-V Segment ID Pool is subset of target NSX-T VNI pool or not')

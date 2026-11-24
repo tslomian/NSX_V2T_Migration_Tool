@@ -1068,9 +1068,9 @@ class NSXTOperations():
                     # getting the target org vdc urn
                     dfw = True if vcdObject.rollback.apiData.get('OrgVDCGroupID') else False
                     if vcdObject.rollback.apiData.get('targetOrgVDC', {}).get('@id'):
-                        bridgedNetworksList += vcdObject.retrieveNetworkListFromMetadata(
+                        bridgedNetworksList += vcdObject.filterBridgedNetworks(vcdObject.retrieveNetworkListFromMetadata(
                             vcdObject.rollback.apiData.get('targetOrgVDC', {}).get('@id'), orgVDCType='target',
-                            dfwStatus=dfw)
+                            dfwStatus=dfw), isTarget=True)
                 self.clearBridging(bridgedNetworksList, vcdObjList[0], rollback=True)
         except:
             raise
@@ -1097,7 +1097,8 @@ class NSXTOperations():
                 # Fetching target VDC Id
                 targetOrgVdcId = vcdObj.rollback.apiData['targetOrgVDC']['@id']
                 # Getting target org vdc network list
-                targetOrgVdcNetworkList += vcdObj.retrieveNetworkListFromMetadata(targetOrgVdcId, orgVDCType='target')
+                targetOrgVdcNetworkList += vcdObj.filterBridgedNetworks(
+                    vcdObj.retrieveNetworkListFromMetadata(targetOrgVdcId, orgVDCType='target'), isTarget=True)
                 # Fetching port group list
                 portGroupList += vcdObj.rollback.apiData['portGroupList'] if vcdObj.rollback.apiData.get(
                     'portGroupList') else list()
