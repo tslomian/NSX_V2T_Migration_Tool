@@ -101,6 +101,8 @@ class VMwareCloudDirectorNSXMigrator():
                             action="store_true", default=False, required=False)
         parser.add_argument("--v2tAssessment", dest="v2tAssessment", help='run v2tAssessment mode(OPTIONAL ARGUMENT)',
                             action="store_true", default=False, required=False)
+        parser.add_argument("--skipVerifyBridgeConn", dest="skipVerifyBridgeConn", help='Skip the bridging connectivity verification checks during bridging (OPTIONAL ARGUMENT)',
+                            action="store_true", default=False, required=False)
         parser.add_argument("-s", "--skip", dest="skip", default=False, nargs="?",
                             help=f"Comma separated values of steps to SKIP while running migration/precheck. Allowed values - [{', '.join(mainConstants.VALID_SKIP_VALUES)}] (OPTIONAL ARGUMENT)", required=False)
         parser.add_argument("-e", "--execute", dest="execute", default=False, nargs="?",
@@ -142,6 +144,8 @@ class VMwareCloudDirectorNSXMigrator():
         # if vcd-api-version argument is provided then force that API version
         if args.vcdApiVersion:
             self.vcdApiVersion = args.vcdApiVersion
+        # if skipVerifyBridgeConn argument is provided then bridging connectivity verification is skipped
+        self.skipVerifyBridgeConn = args.skipVerifyBridgeConn
 
         self.renderInputFile()
 
@@ -185,7 +189,8 @@ class VMwareCloudDirectorNSXMigrator():
             (args.v2tAssessment and (args.cleanupValue or args.preCheck or args.rollback)) or \
             (args.v2tAssessment and (args.skip or args.execute)) or \
             (args.cleanupValue and (args.skip or args.execute)) or \
-            (args.rollback and (args.skip or args.execute)):
+            (args.rollback and (args.skip or args.execute)) or \
+            (args.skipVerifyBridgeConn and (args.cleanupValue or args.preCheck or args.rollback or args.v2tAssessment)):
             parser.print_help()
             raise Exception("Invalid Input Arguments")
 
@@ -917,7 +922,10 @@ class VMwareCloudDirectorNSXMigrator():
                 # Configuring Bridging
                 self.nsxtObjList[0].configureNSXTBridging(self.vcdObjList, self.vcenterObj)
                 # verify bridge connectivity
-                self.nsxtObjList[0].verifyBridgeConnectivity(self.vcdObjList, self.vcenterObj)
+                if self.skipVerifyBridgeConn:
+                    self.consoleLogger.warning('Skipping the NSXT Bridging connectivity verification check as per the input parameters provided')
+                else:
+                    self.nsxtObjList[0].verifyBridgeConnectivity(self.vcdObjList, self.vcenterObj)
             elif orgVdcNetworkList:
                 self.consoleLogger.warning('Skipping the NSXT Bridging configuration and connectivity verification check as the networks are type "Direct"')
             else:
