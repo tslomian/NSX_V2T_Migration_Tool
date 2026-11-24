@@ -5808,6 +5808,7 @@ class VCloudDirectorOperations(ConfigureEdgeGatewayServices):
             orgVDCNetworkList = data["orgVDCNetworkPromiscModeList"]
             # iterating over the orgVDCNetworkList
             for orgVdcNetwork in orgVDCNetworkList:
+                logger.info("RollBack: Restoring the Promiscuous Mode and Forged Mode of network {}".format(orgVdcNetwork['name']))
                 # url to get the dvportgroup details of org vdc network
                 url = "{}{}/{}/{}".format(vcdConstants.OPEN_API_URL.format(self.ipAddress),
                                           vcdConstants.ALL_ORG_VDC_NETWORKS,

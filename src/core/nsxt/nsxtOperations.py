@@ -251,7 +251,8 @@ class NSXTOperations():
                       portgroupList         - List containing details of vxlan backed logical switch (LIST)
         """
         try:
-            logger.info('Configuring NSXT Bridging.')
+            logger.info('Configuring NSXT Bridging for networks: {}.'.format(
+                ', '.join(sorted({networkPortGroups[0]['networkName'] for networkPortGroups in portgroupList if networkPortGroups}))))
             logger.info('Creating Bridge Endpoint Profile.')
             bridgeEndpointProfileList = []
             logger.debug("Retrieving ID of edge cluster/s: {}".format(', '.join(self.edgeClusterNameList)))
@@ -433,6 +434,7 @@ class NSXTOperations():
                     raise Exception('Edge Cluster {} not found.'.format(edgeClusterName))
 
             edgeNodePortgroupList = zip(edgeClusterMembers, portgroupList)
+            updatedNodeNames = []
             for data, networkPortGroupList in edgeNodePortgroupList:
                 url = nsxtConstants.NSXT_HOST_API_URL.format(self.ipAddress,
                                                              nsxtConstants.UPDATE_TRANSPORT_NODE_API.format(data['transport_node_id']))
@@ -478,6 +480,7 @@ class NSXTOperations():
                                                       auth=self.restClientObj.auth)
                     if response.status_code == requests.codes.ok:
                         logger.debug("Successfully updated Edge Transport node {}".format(edgeNodeData['display_name']))
+                        updatedNodeNames.append(edgeNodeData['display_name'])
                     else:
                         msg = "Failed to update Edge Transport node {} with error {}.".format(edgeNodeData['display_name'], response.json()['error_message'])
                         logger.error(msg)
@@ -486,7 +489,8 @@ class NSXTOperations():
                     msg = "Failed to get Edge Transport node {} with error {}.".format(data['transport_node_id'], response.json()['error_message'])
                     logger.error(msg)
                     raise Exception(msg)
-            logger.info('Successfully added Bridge Transport Zone to Bridge Edge Transport Nodes.')
+            logger.info('Successfully added Bridge Transport Zone to Bridge Edge Transport Nodes: {}.'.format(
+                ', '.join(updatedNodeNames)))
         except Exception:
             raise
 
@@ -550,7 +554,6 @@ class NSXTOperations():
                       portgroupList       - List containing details of vxlan backed logical switch (LIST)
         """
         try:
-            logger.info('Attaching bridge endpoint profile to Logical Switch.')
             data = vcdObj.rollback.apiData
 
             switchList = []
@@ -575,6 +578,9 @@ class NSXTOperations():
                 logger.debug(f'portgroupList {portgroupList}')
                 logger.debug(f'switchList {switchList}')
                 raise Exception('Unable to parse PortGroups')
+
+            bridgedSwitchNames = ', '.join(switch[3] for switch in edgeSwitchList)
+            logger.info('Attaching bridge endpoint profile to Logical Switch: {}.'.format(bridgedSwitchNames))
 
             # Get transport Zone /infra/sites path.
             transportZoneName = data['BridgingStatus']['TransportZone']
@@ -652,7 +658,8 @@ class NSXTOperations():
                     raise Exception(msg)
 
             logger.info('Successfully attached bridge endpoint profile to Logical Switch.')
-            logger.info('Successfully configured NSXT Bridging.')
+            logger.info('Successfully configured NSXT Bridging for networks: {}.'.format(
+                ', '.join(switch[0][0]['networkName'] for switch in edgeSwitchList)))
             return
         except Exception:
             raise
@@ -773,8 +780,11 @@ class NSXTOperations():
                 transportZoneId = self.getNsxtComponentIdByName(nsxtConstants.DEPRECATED_TRANSPORT_ZONE_API, transportZoneName)
             if not orgVDCNetworkList:
                 return
+            networkNames = ', '.join(network['name'] for network in orgVDCNetworkList)
             if rollback:
-                logger.info("RollBack: Clearing NSX-T Bridging")
+                logger.info("RollBack: Clearing NSX-T Bridging for networks: {}".format(networkNames))
+            else:
+                logger.info("Clearing NSX-T Bridging for networks: {}".format(networkNames))
             switchList = []
             edgeBridgeList = []
             bridgeEndpointIdList = []
