@@ -160,6 +160,7 @@ class VMwareCloudDirectorNSXMigratorAssessmentMode():
                 'Validating Org VDC Network Static IP pool configuration for non distributed routing': [vcdValidationObj.validateStaticIpPoolForNonDistributedRouting, orgVdcNetworkList],
                 'Validating whether shared networks are supported or not': [vcdValidationObj.validateOrgVDCNetworkShared, sourceOrgVDCId],
                 'Validating Source OrgVDC Direct networks': [vcdValidationObj.validateOrgVDCNetworkDirect, orgVdcNetworkList, self.NSXTProviderVDCImportedNeworkTransportZone, nsxtObj],
+                "Validating networks listed in 'BridgedNetworks'": [vcdValidationObj.validateBridgedNetworks, orgVdcNetworkList],
                 'Validating Edge cluster for target edge gateway deployment': [vcdValidationObj.validateEdgeGatewayDeploymentEdgeCluster, edgeGatewayDeploymentEdgeCluster, nsxtObj],
                 'Validating whether the source NSX-V Segment ID Pool is subset of target NSX-T VNI pool or not': [vcdValidationObj.validateVniPoolRanges, nsxtObj, self.nsxvObj, self.inputDict["VCloudDirector"].get("CloneOverlayIds")],
                 'Validating Target NSX-T backed Network Pools': [vcdValidationObj.validateTargetPvdcNetworkPools, orgVDCDict.get('NSXTNetworkPoolName', None)],
@@ -213,12 +214,13 @@ class VMwareCloudDirectorNSXMigratorAssessmentMode():
                                                                      saveResponse=False)
                 orgVDCIdList.append(sourceOrgVDCId)
 
-            networkList = list()
-            for orgVDCId in orgVDCIdList:
-                networkList += vcdValidationObj.getOrgVDCNetworks(orgVDCId, 'sourceOrgVDCNetworks', saveResponse=False,
-                                                                  sharedNetwork=False)
-
-            filteredList = list(filter(lambda network: network['networkType'] != 'DIRECT', networkList))
+            filteredList = list()
+            for orgVDCId, vcdObj in zip(orgVDCIdList, self.vcdObjList):
+                # direct networks do not need to be bridged, networks not in 'BridgedNetworks' are not bridged
+                filteredList += vcdObj.filterBridgedNetworks(
+                    [network for network in vcdObj.getOrgVDCNetworks(orgVDCId, 'sourceOrgVDCNetworks', saveResponse=False,
+                                                                      sharedNetwork=False)
+                     if network['networkType'] != 'DIRECT'])
 
             # Checking if any org vdc has VXLAN backed network pool
             vxlanBackingPresent = any([True if

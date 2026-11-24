@@ -129,9 +129,9 @@ class VMwareCloudDirectorNSXMigratorCleanup():
                     # getting the target org vdc urn
                     dfw = True if vcdObject.rollback.apiData.get('OrgVDCGroupID') else False
                     if vcdObject.rollback.apiData.get('targetOrgVDC', {}).get('@id'):
-                        bridgedNetworksList += vcdObject.retrieveNetworkListFromMetadata(
+                        bridgedNetworksList += vcdObject.filterBridgedNetworks(vcdObject.retrieveNetworkListFromMetadata(
                             vcdObject.rollback.apiData.get('targetOrgVDC', {}).get('@id'), orgVDCType='target',
-                            dfwStatus=dfw)
+                            dfwStatus=dfw), isTarget=True)
                 nsxtObj.clearBridging(bridgedNetworksList, vcdObjList[0])
                 nsxtObj.deleteTransportZone(vcdObjList[0])
         except:

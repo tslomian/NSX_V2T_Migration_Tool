@@ -75,6 +75,9 @@ VCloudDirector:
       NonDistributedNetworks: False
       serviceNetworkDefinition: 192.168.255.225/27
       SkipBGPMigration: False
+      BridgedNetworks: # (Optional) Source Org VDC networks to be bridged. If not provided all non-direct networks are bridged, if empty no network is bridged
+        - Network1Name
+        - Network2Name
   ImportedNetworkTransportZone: Direct-TZ # NSX-T VLAN transport zone used for segment creation for imported networks
   DummyExternalNetwork: Dummy-ext # Name of the dummy external network which will be temporarily attached to source edge gateway during network disconnection.
   CloneOverlayIds: False # (optional) Flag that instructs migration tool to clone the overlay id's of org vdc networks

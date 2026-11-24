@@ -3381,10 +3381,12 @@ class VCloudDirectorOperations(ConfigureEdgeGatewayServices):
                 self.getPromiscModeForgedTransmit(sourceOrgVDCId)
 
                 # enable the promiscous mode and forged transmit of source org vdc networks
-                self.enablePromiscModeForgedTransmit(orgVdcNetworkList)
+                # only the networks to be bridged need it
+                self.enablePromiscModeForgedTransmit(self.filterBridgedNetworks(
+                    [network for network in orgVdcNetworkList if network['networkType'] != 'DIRECT']))
 
                 # get the portgroup of source org vdc networks
-                self.getPortgroupInfo(orgVdcNetworkList)
+                self.getPortgroupInfo(self.filterBridgedNetworks(orgVdcNetworkList))
 
             # Migrating metadata from source org vdc to target org vdc
             self.migrateMetadata()
@@ -5806,6 +5808,7 @@ class VCloudDirectorOperations(ConfigureEdgeGatewayServices):
             orgVDCNetworkList = data["orgVDCNetworkPromiscModeList"]
             # iterating over the orgVDCNetworkList
             for orgVdcNetwork in orgVDCNetworkList:
+                logger.info("RollBack: Restoring the Promiscuous Mode and Forged Mode of network {}".format(orgVdcNetwork['name']))
                 # url to get the dvportgroup details of org vdc network
                 url = "{}{}/{}/{}".format(vcdConstants.OPEN_API_URL.format(self.ipAddress),
                                           vcdConstants.ALL_ORG_VDC_NETWORKS,
