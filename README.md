@@ -32,6 +32,17 @@ python vcdNSXMigrator.py --filepath <input.yml> --skipVerifyBridgeConn
 
 Bridging is still configured, only the connectivity verification is skipped. Not available with `--cleanup`, `--preCheck`, `--rollback` or `--v2tAssessment`.
 
+### Skip creating Private IP Spaces for non route advertised networks
+
+```yaml
+VCloudDirector:
+  Organization:
+    OrgName: Acme
+    SkipPrivateIpSpaces: True   # default False
+```
+
+Private IP Spaces are not created for Org VDC networks (NAT routed and isolated) that are not route advertised, i.e. when neither `AdvertiseRoutedNetworks` is `True` nor BGP advertises the network's subnet. Route advertised networks are unaffected. The option is set at Organization level because IP Spaces are Org scoped, so it applies to all Org VDCs in the input file.
+
 ### More tolerant connectivity check
 
 The check now waits 30 s before starting and retries every 30 s for up to 180 s before failing.

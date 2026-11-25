@@ -661,6 +661,12 @@ class VCloudDirectorOperations(ConfigureEdgeGatewayServices):
                         sourceOrgVDCNetwork['connection']['routerRef']['id'] in data.get("advertiseEdgeNetworks", []) or \
                         network in [ipaddress.ip_network(net, strict=False) for net in data.get("prefixToBeAdvertised",
                                     {}).get(sourceOrgVDCNetwork['connection']['routerRef']['name'], [])])
+                    # Private IP Space is not created for non route advertised networks (including ISOLATED networks) if
+                    # SkipPrivateIpSpaces is set in the Organization section of the user input
+                    if not routeAdvertisement and self.inputDict["VCloudDirector"]["Organization"].get("SkipPrivateIpSpaces", False):
+                        logger.info("Skipping creation of Private IP Space for Org VDC network - '{}' as it is not route advertised and "
+                                    "'SkipPrivateIpSpaces' is enabled".format(sourceOrgVDCNetwork['name']))
+                        continue
                     ipPrefixList = [(gateway, prefixLength)]
                     # Checking whether the private IP Space is already created, if not creating it
                     if subnet not in privateIpSpaces:

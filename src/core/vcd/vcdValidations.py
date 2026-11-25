@@ -6072,6 +6072,10 @@ class VCDMigrationValidation:
         for EdgeGateway, value in self.orgVdcInput.get('EdgeGateways', {}).items():
             errorList.extend(self.validateEdgeGatewayInputFields(value, EdgeGateway, skipbgpinput=self.orgVdcInput.get("SkipBGPMigration", False)))
 
+        # validation for SkipPrivateIpSpaces (Organization level)
+        if not isinstance(self.inputDict["VCloudDirector"]["Organization"].get("SkipPrivateIpSpaces", False), bool):
+            errorList.append("SkipPrivateIpSpaces for Organization is not in valid format, please provide it in the Boolean format")
+
         if errorList:
             logger.error('\n'.join(errorList))
             raise ValidationError('Invalid data in user input file')
