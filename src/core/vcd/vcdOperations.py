@@ -4133,6 +4133,13 @@ class VCloudDirectorOperations(ConfigureEdgeGatewayServices):
                     targetNWData += str(len(nwList)) + ' Imported - ' + ", ".join(nwList) + '\n'
             endStateTableObj.add_row(['Org VDC Networks', sourceNWData, targetNWData])
 
+            # Get bridged networks, as recorded in metadata when bridging was configured.
+            if self.rollback.apiData.get('bridgedNetworksList'):
+                bridgedNetworks = [network['name'] for network in self.filterStoredBridgedNetworks(
+                    [{'name': key} for key in targetOrgVDCNWdata.keys()], isTarget=True)]
+                endStateTableObj.add_row(
+                    ['Bridged Networks', '', f"{len(bridgedNetworks)} Bridged - {', '.join(bridgedNetworks)}\n"])
+
             # Get source and target vApp data.
             vAppList = StateLog[vcdConstants.TARGET_VAPPS]['TargetvAppData']
             # endStateTableObj.add_row(['vApp Details', sourcevAppData, targetvAppData])

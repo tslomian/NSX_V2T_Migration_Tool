@@ -97,7 +97,7 @@ class VMwareCloudDirectorNSXMigrator():
                             action="store_true", default=False, required=False)
         parser.add_argument("--passwordFile", dest="passwordFilePath",
                             help="Run migration tool with generated password File", required=False)
-        parser.add_argument("--rollback", dest='rollback', help='retry rollback (OPTIONAL ARGUMENT)',
+        parser.add_argument("--rollback", dest='rollback', help='retry rollback. Use with --execute bridging to roll back only NSX-T bridging (OPTIONAL ARGUMENT)',
                             action="store_true", default=False, required=False)
         parser.add_argument("--v2tAssessment", dest="v2tAssessment", help='run v2tAssessment mode(OPTIONAL ARGUMENT)',
                             action="store_true", default=False, required=False)
@@ -141,6 +141,8 @@ class VMwareCloudDirectorNSXMigrator():
         self.passFile = args.passwordFilePath
         # if rollback argument is provided then rollback is retried from its last failed state
         self.retryRollback = args.rollback
+        # if rollback is retried with --execute bridging, only the bridging rollback stage is performed
+        self.rollbackBridgingOnly = bool(args.rollback and args.execute)
         # if vcd-api-version argument is provided then force that API version
         if args.vcdApiVersion:
             self.vcdApiVersion = args.vcdApiVersion
@@ -189,7 +191,8 @@ class VMwareCloudDirectorNSXMigrator():
             (args.v2tAssessment and (args.cleanupValue or args.preCheck or args.rollback)) or \
             (args.v2tAssessment and (args.skip or args.execute)) or \
             (args.cleanupValue and (args.skip or args.execute)) or \
-            (args.rollback and (args.skip or args.execute)) or \
+            (args.rollback and args.skip) or \
+            (args.rollback and args.execute and set(self.executeList) != {mainConstants.BRIDGING_KEYWORD}) or \
             (args.skipVerifyBridgeConn and (args.cleanupValue or args.preCheck or args.rollback or args.v2tAssessment)):
             parser.print_help()
             raise Exception("Invalid Input Arguments")
@@ -521,6 +524,18 @@ class VMwareCloudDirectorNSXMigrator():
         except Exception:
             raise
 
+    def _rollbackBridging(self):
+        """
+        Description : Roll back NSX-T bridging: bridging configuration, bridge transport zone and tagged edge nodes
+        """
+        self.nsxtObjList[0].rollbackBridging(self.vcdObjList)
+        self.nsxtObjList[0].deleteTransportZone(self.vcdObjList[0], rollback=True)
+
+        # untag the used nodes in bridging if remaining
+        if self.vcdObjList[0].rollback.apiData.get('taggedNodesList'):
+            self.nsxtObjList[0].untagEdgeTransportNodes(
+                    self.vcdObjList, self.inputDict, self.vcdObjList[0].rollback.apiData.get('taggedNodesList'))
+
     def runRollback(self):
         """
         Description : Perform rollback if rollback parameter is provided
@@ -529,7 +544,19 @@ class VMwareCloudDirectorNSXMigrator():
             if self.retryRollback and any([vcdObj.rollback.metadata for vcdObj in self.vcdObjList]):
                 self.consoleLogger.info("Performing rollback")
 
-            if self.retryRollback:
+            if self.retryRollback and self.rollbackBridgingOnly:
+                self.consoleLogger.info("Performing bridging rollback only (--execute bridging)")
+                # Adding segment to the exclusion list
+                for vcdObject in self.vcdObjList:
+                    self.nsxtObjList[0].addGroupToExclusionlist(vcdObject)
+
+                self._rollbackBridging()
+
+                # Removing Segment from Exclusion List
+                for vcdObject in self.vcdObjList:
+                    self.nsxtObjList[0].removeGroupFromExclusionlist(vcdObject)
+                self.consoleLogger.info("Bridging rollback completed. Run --rollback without --execute to roll back the remaining stages.")
+            elif self.retryRollback:
                 # Rollback: Copying direct network IP's from NSX-T segment backed external network to source external network
                 futures = list()
                 with ThreadPoolExecutor(max_workers=self.numberOfParallelMigrations) as executor:
@@ -559,13 +586,7 @@ class VMwareCloudDirectorNSXMigrator():
                     waitForThreadToComplete(futures)
 
                 # If bridging is configured do rollback
-                self.nsxtObjList[0].rollbackBridging(self.vcdObjList)
-                self.nsxtObjList[0].deleteTransportZone(self.vcdObjList[0], rollback=True)
-
-                # untag the used nodes in bridging if remaining
-                if self.vcdObjList[0].rollback.apiData.get('taggedNodesList'):
-                    self.nsxtObjList[0].untagEdgeTransportNodes(
-                            self.vcdObjList, self.inputDict, self.vcdObjList[0].rollback.apiData.get('taggedNodesList'))
+                self._rollbackBridging()
 
                 # Removing Segment from Exclusion List
                 for vcdObject in self.vcdObjList:

@@ -253,7 +253,6 @@ class NSXTOperations():
         try:
             logger.info('Configuring NSXT Bridging for networks: {}.'.format(
                 ', '.join(sorted({networkPortGroups[0]['networkName'] for networkPortGroups in portgroupList if networkPortGroups}))))
-            logger.info('Creating Bridge Endpoint Profile.')
             bridgeEndpointProfileList = []
             logger.debug("Retrieving ID of edge cluster/s: {}".format(', '.join(self.edgeClusterNameList)))
 
@@ -286,6 +285,7 @@ class NSXTOperations():
                 payloadDict = {
                     'bridgeEndpointProfileName': 'Bridge-Endpoint-Profile-{}'.format(data['transport_node_id'])
                 }
+                logger.info("Creating Bridge Endpoint Profile '{}'.".format(payloadDict['bridgeEndpointProfileName']))
                 payloadData = self.nsxtUtils.createPayload(filePath, payloadDict, fileType='json',
                                                           componentName=nsxtConstants.COMPONENT_NAME,
                                                           templateName=nsxtConstants.CREATE_BRIDGE_EDGE_PROFILE_COMPONENT_NAME)
@@ -298,12 +298,12 @@ class NSXTOperations():
                     self.checkRealizedState(intent_path)
 
                 if response.status_code == requests.codes.ok or response.status_code == requests.codes.created:
-                    logger.debug('Bridge Endpoint Profile {} created successfully.'.format(payloadDict['bridgeEndpointProfileName']))
                     bridgeEndpointProfileId = json.loads(response.content)["id"]
                     bridgeEndpointProfileList.append(bridgeEndpointProfileId)
+                    logger.info("Successfully created Bridge Endpoint Profile '{}'.".format(payloadDict['bridgeEndpointProfileName']))
                 else:
-                    raise Exception('Failed to create Bridge Endpoint Profile. Errors {}.'.format(response.content))
-            logger.info('Successfully created Bridge Endpoint Profile.')
+                    raise Exception('Failed to create Bridge Endpoint Profile {}. Errors {}.'.format(
+                        payloadDict['bridgeEndpointProfileName'], response.content))
         except Exception:
             raise
 
@@ -315,10 +315,10 @@ class NSXTOperations():
         Returns     : uplinkProfileId   -   ID of the uplink profile created (STRING)
         """
         try:
-            logger.info('Creating Bridge Uplink Host Profile.')
             data = vcdObj.rollback.apiData
             filePath = os.path.join(nsxtConstants.NSXT_ROOT_DIRECTORY, 'template.json')
             bridgeUplinkProfile = nsxtConstants.BRDIGE_UPLINK_PROFILE_NAME + str(uuid.uuid4())
+            logger.info("Creating Bridge Uplink Host Profile '{}'.".format(bridgeUplinkProfile))
             if version.parse(self.apiVersion) >= version.parse(nsxtConstants.API_VERSION_STARTWITH_3_2):
                 if not self.getComponentData(componentApi=nsxtConstants.HOST_SWITCH_PROFILE_API,
                                              componentName=bridgeUplinkProfile, usePolicyApi=True):
@@ -341,7 +341,7 @@ class NSXTOperations():
                         self.checkRealizedState(intent_path)
                         logger.debug("Successfully created uplink profile {}".format(bridgeUplinkProfile))
                         uplinkProfileId = json.loads(response.content)["unique_id"]
-                        logger.info('Successfully created Bridge Uplink Host Profile {}'.format(bridgeUplinkProfile))
+                        logger.info("Successfully created Bridge Uplink Host Profile '{}'.".format(bridgeUplinkProfile))
                         data['BridgingStatus']['UplinkProfileName'] = bridgeUplinkProfile
                         return uplinkProfileId
                     msg = "Failed to create uplink profile {}.".format(bridgeUplinkProfile)
@@ -371,7 +371,7 @@ class NSXTOperations():
                     if response.status_code == requests.codes.created:
                         logger.debug("Successfully created uplink profile {}".format(bridgeUplinkProfile))
                         uplinkProfileId = json.loads(response.content)["id"]
-                        logger.info('Successfully created Bridge Uplink Host Profile {}'.format(bridgeUplinkProfile))
+                        logger.info("Successfully created Bridge Uplink Host Profile '{}'.".format(bridgeUplinkProfile))
                         data['BridgingStatus']['UplinkProfileName'] = bridgeUplinkProfile
                         return uplinkProfileId
                     msg = "Failed to create uplink profile {}.".format(bridgeUplinkProfile)
@@ -395,7 +395,6 @@ class NSXTOperations():
             data = vcdObj.rollback.apiData
             transportZoneName = data['BridgingStatus']['TransportZone']
             bridgeUplinkProfile = data['BridgingStatus']['UplinkProfileName']
-            logger.info('Adding Bridge Transport Zone to Bridge Edge Transport Nodes.')
             # Getting the cluster resource-pool mappings
             clusterResourcePoolMapping = vCenterObj.fetchClusterResourcePoolMapping()
             if version.parse(self.apiVersion) >= version.parse(nsxtConstants.API_VERSION_STARTWITH_3_2):
@@ -476,11 +475,14 @@ class NSXTOperations():
                     url = nsxtConstants.NSXT_HOST_API_URL.format(self.ipAddress,
                                                                  nsxtConstants.UPDATE_TRANSPORT_NODE_API.format(edgeNodeData['node_id']))
                     payloadDict = json.dumps(edgeNodeData)
+                    logger.info("Adding Bridge Transport Zone '{}' to Edge Transport Node '{}'.".format(
+                        transportZoneName, edgeNodeData['display_name']))
                     response = self.restClientObj.put(url=url, headers=nsxtConstants.NSXT_API_HEADER, data=payloadDict,
                                                       auth=self.restClientObj.auth)
                     if response.status_code == requests.codes.ok:
-                        logger.debug("Successfully updated Edge Transport node {}".format(edgeNodeData['display_name']))
                         updatedNodeNames.append(edgeNodeData['display_name'])
+                        logger.info("Successfully added Bridge Transport Zone '{}' to Edge Transport Node '{}'.".format(
+                            transportZoneName, edgeNodeData['display_name']))
                     else:
                         msg = "Failed to update Edge Transport node {} with error {}.".format(edgeNodeData['display_name'], response.json()['error_message'])
                         logger.error(msg)
@@ -489,8 +491,6 @@ class NSXTOperations():
                     msg = "Failed to get Edge Transport node {} with error {}.".format(data['transport_node_id'], response.json()['error_message'])
                     logger.error(msg)
                     raise Exception(msg)
-            logger.info('Successfully added Bridge Transport Zone to Bridge Edge Transport Nodes: {}.'.format(
-                ', '.join(updatedNodeNames)))
         except Exception:
             raise
 
@@ -579,8 +579,6 @@ class NSXTOperations():
                 logger.debug(f'switchList {switchList}')
                 raise Exception('Unable to parse PortGroups')
 
-            bridgedSwitchNames = ', '.join(switch[3] for switch in edgeSwitchList)
-            logger.info('Attaching bridge endpoint profile to Logical Switch: {}.'.format(bridgedSwitchNames))
 
             # Get transport Zone /infra/sites path.
             transportZoneName = data['BridgingStatus']['TransportZone']
@@ -624,6 +622,8 @@ class NSXTOperations():
                 if not bridgeProfile:
                     continue
 
+                logger.info("Attaching bridge endpoint profile '{}' to Logical Switch '{}'.".format(
+                    ', '.join(profile['display_name'] for profile in bridgeProfile), geneveLogicalSwitch[3]))
                 intent_path = nsxtConstants.LOGICAL_SEGMENTS_ENDPOINT.format(geneveLogicalSwitch[1])
                 segmentDetailsUrl = "{}{}".format(
                     nsxtConstants.NSXT_HOST_POLICY_API.format(self.ipAddress), intent_path)
@@ -644,7 +644,8 @@ class NSXTOperations():
                                                         auth=self.restClientObj.auth, data=str(payloadData))
                     if response.status_code == requests.codes.ok or response.status_code == requests.codes.created:
                         self.checkRealizedState(intent_path)
-                        logger.debug('Bridge Endpoint profile attached to Logical switch {}'.format(geneveLogicalSwitch[1]))
+                        logger.info("Successfully attached bridge endpoint profile '{}' to Logical Switch '{}'.".format(
+                            ', '.join(profile['display_name'] for profile in bridgeProfile), geneveLogicalSwitch[3]))
                         if geneveLogicalSwitch[2] == 'NAT_ROUTED':
                             edgeNodeList.append(edgeNodeId)
                         self.rollback.apiData['edgeNodeList'] = edgeNodeList
@@ -657,7 +658,6 @@ class NSXTOperations():
                     msg = 'Failed to get segment details in attach segment {} - {}.'.format(geneveLogicalSwitch[1], responseData)
                     raise Exception(msg)
 
-            logger.info('Successfully attached bridge endpoint profile to Logical Switch.')
             logger.info('Successfully configured NSXT Bridging for networks: {}.'.format(
                 ', '.join(switch[0][0]['networkName'] for switch in edgeSwitchList)))
             return
@@ -830,7 +830,7 @@ class NSXTOperations():
 
                     if switchTags:
                         switchList.append((networkData['display_name'], networkData['id'], networkData['transport_zone_path'],
-                                           networkData['path']))
+                                           networkData['path'], orgVdcNetwork['name']))
                         if "bridge_profiles" in networkData.keys():
                             bridgeDetails = networkData['bridge_profiles']
                             for data in bridgeDetails:
@@ -850,7 +850,9 @@ class NSXTOperations():
 
             # Detach the segment
             # for each segment present in switchList, we are calling detach segment API.
+            progressPrefix = "RollBack: " if rollback else ""
             for segment in switchList:
+                logger.info(f"{progressPrefix}Detaching network '{segment[4]}' (segment '{segment[0]}') from NSX-T bridge")
                 intent_path = nsxtConstants.LOGICAL_SEGMENTS_ENDPOINT.format(segment[1])
                 segmentUrl = "{}{}".format(
                     nsxtConstants.NSXT_HOST_POLICY_API.format(self.ipAddress), intent_path)
@@ -876,7 +878,7 @@ class NSXTOperations():
                                                     auth=self.restClientObj.auth, data=str(payloadData))
                 if response.status_code == requests.codes.ok or response.status_code == requests.codes.created:
                     self.checkRealizedState(intent_path)
-                    logger.debug('Logical segment {} is detached from bridge successfully.'.format(segment[0]))
+                    logger.info(f"{progressPrefix}Successfully detached network '{segment[4]}' (segment '{segment[0]}') from NSX-T bridge")
                 else:
                     responseData = json.loads(response.content)
                     msg = 'Failed to detach Logical segment {} from Edge-Bridge - {}'.format(segment, responseData['error_message'])
@@ -893,12 +895,14 @@ class NSXTOperations():
                     # delete the bridge endpoint
                     if response.status_code == requests.codes.ok:
                         bridgeEndpointResult = json.loads(response.content)
+                        bridgeEndpointName = bridgeEndpointResult.get('display_name', bridgeEndpoint)
                         # getting the bridge endpoint profile id from a bridge endpoint
                         bridgeEndpointProfileIdResults.append(bridgeEndpointResult['bridge_endpoint_profile_id'])
+                        logger.info("Removing Bridge Endpoint '{}'.".format(bridgeEndpointName))
                         response = self.restClientObj.delete(url=bridgeEndpointUrl, headers=nsxtConstants.NSXT_API_HEADER,
                                                              auth=self.restClientObj.auth)
                         if response.status_code == requests.codes.ok:
-                            logger.debug('Bridge Endpoint {} deleted successfully'.format(bridgeEndpoint))
+                            logger.info("Successfully removed Bridge Endpoint '{}'.".format(bridgeEndpointName))
                         else:
                             responseData = json.loads(response.content)
                             msg = 'Failed to delete Bridge Endpoint {} - {}'.format(bridgeEndpoint, responseData['error_message'])
@@ -909,12 +913,13 @@ class NSXTOperations():
                     edgeBridgeProfileName = edgeBridge.split('/')[-1]
                     deleteEdgeBridgeUrl = "{}{}".format(
                         nsxtConstants.NSXT_HOST_POLICY_API.format(self.ipAddress), edgeBridge)
+                    logger.info("Removing Edge Bridge Profile '{}'.".format(edgeBridgeProfileName))
                     response = self.restClientObj.delete(url=deleteEdgeBridgeUrl,
                                                          headers=nsxtConstants.NSXT_API_HEADER,
                                                          auth=self.restClientObj.auth)
                     if response.status_code == requests.codes.ok:
                         self.checkRealizedState(edgeBridge, markedForDelete=True)
-                        logger.debug('Edge Bridge profile {} deleted Successfully'.format(edgeBridgeProfileName))
+                        logger.info("Successfully removed Edge Bridge Profile '{}'.".format(edgeBridgeProfileName))
                     else:
                         responseData = json.loads(response.content)
                         msg = 'Failed to delete Bridge Edge Profile {} - {}'.format(edgeBridgeProfileName, responseData['error_message'])
@@ -928,10 +933,11 @@ class NSXTOperations():
                     # delete the bridge endpoint profile
                     if response.status_code == requests.codes.ok:
                         bridgeEndpointProfileResult = json.loads(response.content)
+                        logger.info("Removing Bridge Endpoint Profile '{}'.".format(bridgeEndpointProfileResult['display_name']))
                         response = self.restClientObj.delete(url=bridgeEndpointProfileUrl, headers=nsxtConstants.NSXT_API_HEADER,
                                                              auth=self.restClientObj.auth)
                         if response.status_code == requests.codes.ok:
-                            logger.debug('Bridge Endpoint profile {} deleted Successfully'.format(bridgeEndpointProfileResult['display_name']))
+                            logger.info("Successfully removed Bridge Endpoint Profile '{}'.".format(bridgeEndpointProfileResult['display_name']))
                         else:
                             responseData = json.loads(response.content)
                             msg = 'Failed to delete Bridge Endpoint Profile {} - {}'.format(bridgeEndpointProfileResult['display_name'], responseData['error_message'])
@@ -981,6 +987,8 @@ class NSXTOperations():
                     else:
                         continue
 
+                    logger.info("Removing Bridge Transport Zone '{}' from Edge Transport Node '{}'.".format(
+                        transportZoneName, edgeNodeData['display_name']))
                     hostSwitchSpec = edgeNodeData["host_switch_spec"]["host_switches"]
                     # Removing last switch for host switch specification
                     hostSwitchSpec.pop()
@@ -1004,8 +1012,8 @@ class NSXTOperations():
                                                       data=payloadDict,
                                                       auth=self.restClientObj.auth)
                     if response.status_code == requests.codes.ok:
-                        logger.debug(
-                            "Successfully updated Edge Transport node {} by removing Bridge Transport zone".format(edgeNodeData['display_name']))
+                        logger.info("Successfully removed Bridge Transport Zone '{}' from Edge Transport Node '{}'.".format(
+                            transportZoneName, edgeNodeData['display_name']))
                     else:
                         responseData = json.loads(response.content)
                         msg = "Failed to update Edge Transport node {} - {}.".format(edgeNodeData['display_name'], responseData)
@@ -1028,6 +1036,7 @@ class NSXTOperations():
                 hostSwitchProfileData = self.getComponentData(componentApi=nsxtConstants.DEPRECATED_HOST_SWITCH_PROFILE_API,
                                                             componentName=bridgeUplinkProfile)
             if hostSwitchProfileData:
+                logger.info("Removing Bridge Uplink Host Profile '{}'.".format(bridgeUplinkProfile))
                 if version.parse(self.apiVersion) >= version.parse(nsxtConstants.API_VERSION_STARTWITH_3_2):
                     hostSwitchProfileId = hostSwitchProfileData['unique_id']
                     intent_path = hostSwitchProfileData['path']
@@ -1036,7 +1045,7 @@ class NSXTOperations():
                                                          auth=self.restClientObj.auth)
                     if response.status_code == requests.codes.ok:
                         self.checkRealizedState(intent_path, markedForDelete=True)
-                        logger.debug('Host Switch Profile {} deleted successfully'.format(hostSwitchProfileId))
+                        logger.info("Successfully removed Bridge Uplink Host Profile '{}'.".format(bridgeUplinkProfile))
                     else:
                         responseData = json.loads(response.content)
                         msg = 'Failed to delete Host Switch Profile {} - {}'.format(hostSwitchProfileId,
@@ -1049,7 +1058,7 @@ class NSXTOperations():
                     response = self.restClientObj.delete(url, headers=nsxtConstants.NSXT_API_HEADER,
                                                          auth=self.restClientObj.auth)
                     if response.status_code == requests.codes.ok:
-                        logger.debug('Host Switch Profile {} deleted successfully'.format(hostSwitchProfileId))
+                        logger.info("Successfully removed Bridge Uplink Host Profile '{}'.".format(bridgeUplinkProfile))
                     else:
                         responseData = json.loads(response.content)
                         msg = 'Failed to delete Host Switch Profile {} - {}'.format(hostSwitchProfileId, responseData['error_message'])
@@ -1107,9 +1116,15 @@ class NSXTOperations():
                     # getting the target org vdc urn
                     dfw = True if vcdObject.rollback.apiData.get('OrgVDCGroupID') else False
                     if vcdObject.rollback.apiData.get('targetOrgVDC', {}).get('@id'):
-                        bridgedNetworksList += vcdObject.filterBridgedNetworks(vcdObject.retrieveNetworkListFromMetadata(
+                        bridgedNetworksList += vcdObject.filterStoredBridgedNetworks(vcdObject.retrieveNetworkListFromMetadata(
                             vcdObject.rollback.apiData.get('targetOrgVDC', {}).get('@id'), orgVDCType='target',
                             dfwStatus=dfw), isTarget=True)
+                if bridgedNetworksList:
+                    networkNames = ', '.join(network['name'] for network in bridgedNetworksList)
+                    logging.getLogger("consoleLogger").info(
+                        f"RollBack: Bridged networks to roll back ({len(bridgedNetworksList)}): {networkNames}")
+                else:
+                    logging.getLogger("consoleLogger").info("RollBack: No bridged networks found to roll back.")
                 self.clearBridging(bridgedNetworksList, vcdObjList[0], rollback=True)
         except:
             raise
@@ -1136,8 +1151,15 @@ class NSXTOperations():
                 # Fetching target VDC Id
                 targetOrgVdcId = vcdObj.rollback.apiData['targetOrgVDC']['@id']
                 # Getting target org vdc network list
-                targetOrgVdcNetworkList += vcdObj.filterBridgedNetworks(
+                bridgedNetworks = vcdObj.filterBridgedNetworks(
                     vcdObj.retrieveNetworkListFromMetadata(targetOrgVdcId, orgVDCType='target'), isTarget=True)
+                targetOrgVdcNetworkList += bridgedNetworks
+                # Recording the networks that are going to be bridged (source names, without '-v2t' suffix)
+                # so rollback, cleanup and the end state log use exactly the bridged networks
+                bridgedNames = [network['name'][:-len('-v2t')] if network['name'].endswith('-v2t') else network['name']
+                                for network in bridgedNetworks if network['networkType'] not in ('DIRECT', 'OPAQUE')]
+                if bridgedNames:
+                    vcdObj.rollback.apiData['bridgedNetworksList'] = bridgedNames
                 # Fetching port group list
                 portGroupList += vcdObj.rollback.apiData['portGroupList'] if vcdObj.rollback.apiData.get(
                     'portGroupList') else list()
@@ -1150,7 +1172,12 @@ class NSXTOperations():
             if filteredList:
                 
                 logger.info("Configuring NSX-T Bridging for Org VDC networks: {}".format(', '.join([network['name'] for network in filteredList])))
-                
+
+                # saving the list of bridged networks in metadata before bridging is configured
+                for vcdObj in vcdObjList:
+                    if vcdObj.rollback.apiData.get('bridgedNetworksList'):
+                        vcdObj.saveMetadataInOrgVdc(force=True)
+
                 # create bridge transport zone
                 self.createTransportZone(vcdObjList[0])
 
@@ -1517,6 +1544,10 @@ class NSXTOperations():
             else:
                 raise Exception(
                     'Failed to fetch transport node details with error - {}'.format(responseDict["error_message"]))
+            nodeName = responseDict.get('display_name', node)
+            tagText = ', '.join("'{}:{}'".format(*tag) for tag in listify(tagToAdd if tagToAdd else tagToRemove))
+            tagAction, tagPreposition = ('Adding', 'to') if tagToAdd else ('Removing', 'from')
+            logger.info("{} migration tag {} {} Edge Transport Node '{}'.".format(tagAction, tagText, tagPreposition, nodeName))
             if not responseDict.get('tags'):
                 responseDict['tags'] = []
             responseDict['tags'] = [tag for tag in responseDict['tags'] if (tag["scope"], tag["tag"]) not in listify(tagToRemove)] + \
@@ -1529,8 +1560,8 @@ class NSXTOperations():
                                               auth=self.restClientObj.auth)
             responseDict = response.json()
             if response.status_code == requests.codes.ok:
-                logger.debug(
-                    "Successfully updated edge transport node {} tags".format(responseDict['display_name']))
+                logger.info("Successfully {} migration tag {} {} Edge Transport Node '{}'.".format(
+                    'added' if tagToAdd else 'removed', tagText, tagPreposition, nodeName))
                 transportNodeList.append({"name": responseDict["display_name"], "id": responseDict["node_id"]})
             else:
                 msg = "Failed to update Edge Transport node {} with error {}.".format(responseDict['display_name'],
@@ -1573,6 +1604,7 @@ class NSXTOperations():
         data = vcdObj.rollback.apiData
         if data.get("BridgingStatus", {}).get("TransportZone"):
             return
+        logger.info("Creating Bridge Transport Zone '{}'.".format(TransportZone))
         if version.parse(self.apiVersion) >= version.parse(nsxtConstants.API_VERSION_STARTWITH_3_2):
             # Url to create transport zone
             intent_path = nsxtConstants.TRANSPORT_ZONE_PATH.format(TransportZone)
@@ -1586,7 +1618,7 @@ class NSXTOperations():
             response = self.restClientObj.put(url=url, headers=nsxtConstants.NSXT_API_HEADER, auth=self.restClientObj.auth,
                                                 data=payloadData)
             if response.status_code == requests.codes.ok:
-                logger.info('Bridge Transport Zone {} created successfully.'.format(TransportZone))
+                logger.info("Successfully created Bridge Transport Zone '{}'.".format(TransportZone))
                 data['BridgingStatus'] = {"TransportZone": TransportZone}
                 vcdObj.saveMetadataInOrgVdc(force=True)
             else:
@@ -1604,7 +1636,7 @@ class NSXTOperations():
             response = self.restClientObj.post(url=url, headers=nsxtConstants.NSXT_API_HEADER, auth=self.restClientObj.auth,
                                                 data=payloadData)
             if response.status_code == requests.codes.created:
-                logger.info('Bridge Transport Zone {} created successfully.'.format(TransportZone))
+                logger.info("Successfully created Bridge Transport Zone '{}'.".format(TransportZone))
                 data['BridgingStatus'] = {"TransportZone": TransportZone}
                 vcdObj.saveMetadataInOrgVdc(force=True)
             else:
@@ -1632,10 +1664,11 @@ class NSXTOperations():
             else:
                 transportZoneId = bridgeTransportZoneData['id']
                 url = nsxtConstants.NSXT_HOST_API_URL.format(self.ipAddress, nsxtConstants.DEPRECATED_TRANSPORT_ZONE_API) + f"/{transportZoneId}"
+            logger.info("Removing Bridge Transport Zone '{}'.".format(TransportZone))
             response = self.restClientObj.delete(url=url, headers=nsxtConstants.NSXT_API_HEADER,
                                                  auth=self.restClientObj.auth)
             if response.status_code == requests.codes.ok:
-                logger.debug('Successfully deleted Bridge Transport Zone - "{}"'.format(TransportZone))
+                logger.info("Successfully removed Bridge Transport Zone '{}'.".format(TransportZone))
                 if rollback:
                     vcdObj.deleteMetadataApiCall(key='BridgingStatus-v2t',
                                                         orgVDCId=vcdObj.rollback.apiData.get('sourceOrgVDC', {}).get('@id'))

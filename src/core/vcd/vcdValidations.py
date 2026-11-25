@@ -2233,6 +2233,23 @@ class VCDMigrationValidation:
                 if (network['name'][:-len(suffix)] if isTarget and network['name'].endswith(suffix)
                     else network['name']) in bridgedNetworks]
 
+    def filterStoredBridgedNetworks(self, networkList, isTarget=False):
+        """
+        Description :   Keeps only the networks recorded in metadata as bridged ('bridgedNetworksList').
+                        Falls back to 'BridgedNetworks' of the user input if no list was recorded
+                        (e.g. bridging was configured by an older version of the tool).
+        Parameters  :   networkList - List of Org VDC networks (LIST)
+                        isTarget    - True if networkList holds target networks, which carry the '-v2t' suffix (BOOL)
+        Returns     :   Filtered list of Org VDC networks (LIST)
+        """
+        storedNetworks = self.rollback.apiData.get('bridgedNetworksList')
+        if storedNetworks is None:
+            return self.filterBridgedNetworks(networkList, isTarget=isTarget)
+        suffix = '-v2t'
+        return [network for network in networkList
+                if (network['name'][:-len(suffix)] if isTarget and network['name'].endswith(suffix)
+                    else network['name']) in storedNetworks]
+
     @isSessionExpired
     def retrieveNetworkListFromMetadata(self, orgVdcId, orgVDCType='source', dfwStatus=False):
         """
