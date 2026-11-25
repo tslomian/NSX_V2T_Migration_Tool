@@ -4,6 +4,8 @@ NSX-V to NSX-T migration tool for VMware Cloud Director.
 
 ## Changelog
 
+The changes below are included in **TS_MT_v1.4.3**.
+
 ### Bridge only selected networks
 
 Add the optional `BridgedNetworks[]` list to a source Org VDC in the input file (see `src/sampleUserInput.yml`):
