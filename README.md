@@ -4,7 +4,17 @@ NSX-V to NSX-T migration tool for VMware Cloud Director.
 
 ## Changelog
 
-The changes below are included in **TS_MT_v1.4.3**.
+## TS_MT_v1.4.3.1
+
+### Skip the media attached to vApp VMs check
+
+```
+python vcdNSXMigrator.py --filepath <input.yml> --skipVerifyMedia
+```
+
+Skips the pre-check that fails when any VM in a source vApp has media connected. Applies to migration and `--preCheck` runs. Not available with `--cleanup`, `--rollback` or `--v2tAssessment`.
+
+## TS_MT_v1.4.3
 
 ### Bridge only selected networks
 
@@ -30,7 +40,7 @@ Pre-check verifies that every listed network exists and is not a direct network.
 python vcdNSXMigrator.py --filepath <input.yml> --skipVerifyBridgeConn
 ```
 
-Bridging is still configured, only the connectivity verification is skipped. Not available with `--cleanup`, `--preCheck`, `--rollback` or `--v2tAssessment`.
+Bridging is still configured, only the connectivity verification is skipped. Not available with `--cleanup`, `--rollback` or `--v2tAssessment`.
 
 ### Skip creating Private IP Spaces for non route advertised networks
 

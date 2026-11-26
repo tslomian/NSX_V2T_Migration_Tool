@@ -5994,10 +5994,12 @@ class VCDMigrationValidation:
 
     @description("Performing vApp related validations")
     @remediate
-    def vappValidations(self, sourceOrgVDCId, nsxtObj=None):
+    def vappValidations(self, sourceOrgVDCId, nsxtObj=None, skipVerifyMedia=False):
         """
         Description : Pre migration validation tasks related to vApps present in org vdc
         Parameters  : sourceOrgVDCId -  ID of source org vdc (STRING)
+                      nsxtObj        -  Object of NSXT operations class holding all functions related to NSXT (OBJECT)
+                      skipVerifyMedia - Flag deciding whether to skip the media attached to vApp VMs check (BOOLEAN)
         """
         try:
             # validating whether vApp name exceeds 118 character limit
@@ -6031,8 +6033,11 @@ class VCDMigrationValidation:
             logger.info('Validating a VM does not have independent disks with different storage policies when fast provisioning is enabled')
             self.validateNamedDiskWithFastProvisioned(sourceOrgVDCId)
 
-            logger.info('Validating whether media is attached to any vApp VMs')
-            self.validateVappVMsMediaNotConnected(sourceOrgVDCId)
+            if skipVerifyMedia:
+                logger.warning('Skipping the validation of media attached to vApp VMs as per the input parameters provided')
+            else:
+                logger.info('Validating whether media is attached to any vApp VMs')
+                self.validateVappVMsMediaNotConnected(sourceOrgVDCId)
 
             # get the affinity rules of source Org VDC
             logger.info('Getting the VM affinity rules of source Org VDC {}'.format(self.orgVdcInput["OrgVDCName"]))
@@ -6199,7 +6204,7 @@ class VCDMigrationValidation:
                     entity))
         return errorList
 
-    def preMigrationValidation(self, inputDict, sourceOrgVDCId, nsxtObj, nsxvObj, vcdObjList, validateVapp=False, validateServices=False):
+    def preMigrationValidation(self, inputDict, sourceOrgVDCId, nsxtObj, nsxvObj, vcdObjList, validateVapp=False, validateServices=False, skipVerifyMedia=False):
         """
         Description : Pre migration validation tasks
         Parameters  : inputDict      -  dictionary of all the input yaml file key/values (DICT)
@@ -6208,6 +6213,7 @@ class VCDMigrationValidation:
                       nsxvObj        -  Object of NSXV operations class holding all functions related to NSXV (OBJECT)
                       validateVapp   -  Flag deciding whether to validate vApp or not (BOOLEAN)
                       validateServices- Flag deciding whether to validate edge gateway services or not (BOOLEAN)
+                      skipVerifyMedia-  Flag deciding whether to skip the media attached to vApp VMs check (BOOLEAN)
         """
         try:
             # Replacing thread name with org vdc name
@@ -6221,7 +6227,7 @@ class VCDMigrationValidation:
                     # Performing services related validations
                     self.servicesValidations(sourceOrgVDCId, nsxtObj, nsxvObj) if validateServices else False,
                     # Performing vApp related validations
-                    self.vappValidations(sourceOrgVDCId, nsxtObj) if validateVapp else False,
+                    self.vappValidations(sourceOrgVDCId, nsxtObj, skipVerifyMedia=skipVerifyMedia) if validateVapp else False,
                     # Performing vlan segment checks for multiple Org VDCs
                     self.checkVlanSegmentFromMultipleVDCs(vcdObjList)]):
                 logger.debug(

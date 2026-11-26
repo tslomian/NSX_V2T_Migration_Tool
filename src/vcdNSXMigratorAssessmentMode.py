@@ -30,7 +30,7 @@ class VMwareCloudDirectorNSXMigratorAssessmentMode():
     """
     Description :   The class has methods which does validation tasks from NSX-V to NSX-T
     """
-    def __init__(self, inputDict, vcdObjList, nsxtObjList, nsxvObj, vcenterObj, executeList):
+    def __init__(self, inputDict, vcdObjList, nsxtObjList, nsxvObj, vcenterObj, executeList, skipVerifyMedia=False):
         """
         Description : This method initializes the basic configurations reqired to run Assessment mode
         """
@@ -39,6 +39,8 @@ class VMwareCloudDirectorNSXMigratorAssessmentMode():
         self.inputDict = inputDict
         # Steps to perform for migration
         self.executeList = executeList
+        # Skip the validation of media attached to vApp VMs
+        self.skipVerifyMedia = skipVerifyMedia
         self.threadCount = inputDict["Common"].get("MaxThreadCount", 75)
         self.NSXTProviderVDCImportedNeworkTransportZone = inputDict["VCloudDirector"].get("ImportedNetworkTransportZone", None)
         self.vcdObjList = vcdObjList
@@ -174,12 +176,15 @@ class VMwareCloudDirectorNSXMigratorAssessmentMode():
                     'Validating if empty vApps or vApps in failed creation/unresolved/unrecognized/inconsistent state do not exist in source org VDC': [vcdValidationObj.validateNoEmptyVappsExistInSourceOrgVDC, sourceOrgVDCId],
                     'Validating if fencing is enabled on vApps in source OrgVDC': [vcdValidationObj.validateVappFencingMode, sourceOrgVDCId],
                     'Validating VMs/vApps in suspended/partially suspended state or in maintenance mode do not exists in source OrgVDC': [vcdValidationObj.validateSourceSuspendedVMsInVapp, sourceOrgVDCId],
-                    'Validating VMs in vApp are not connected to media': [vcdValidationObj.validateVappVMsMediaNotConnected, sourceOrgVDCId, True],
                     'Validating routed vApp networks': [vcdValidationObj.validateRoutedVappNetworks, sourceOrgVDCId, False, nsxtObj],
                     'Validating vApps isolated vApp networks with DHCP enabled': [vcdValidationObj.validateDHCPOnIsolatedvAppNetworks, sourceOrgVDCId, edgeGatewayDeploymentEdgeCluster, nsxtObj],
                     'Validating Independent Disks': [vcdValidationObj.validateIndependentDisks, sourceOrgVDCId, False],
                     'Validating a VM does not have independent disks with different storage policies when fast provisioning is enabled': [vcdValidationObj.validateNamedDiskWithFastProvisioned, sourceOrgVDCId],
                 })
+                if self.skipVerifyMedia:
+                    self.consoleLogger.warning('Skipping the validation of media attached to vApp VMs as per the input parameters provided')
+                else:
+                    vcdValidationMapping['Validating VMs in vApp are not connected to media'] = [vcdValidationObj.validateVappVMsMediaNotConnected, sourceOrgVDCId, True]
             # Perform these validations only if services are to be configured
             if mainConstants.SERVICES_KEYWORD in self.executeList:
                 vcdValidationMapping.update({

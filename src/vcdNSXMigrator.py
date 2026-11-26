@@ -103,6 +103,8 @@ class VMwareCloudDirectorNSXMigrator():
                             action="store_true", default=False, required=False)
         parser.add_argument("--skipVerifyBridgeConn", dest="skipVerifyBridgeConn", help='Skip the bridging connectivity verification checks during bridging (OPTIONAL ARGUMENT)',
                             action="store_true", default=False, required=False)
+        parser.add_argument("--skipVerifyMedia", dest="skipVerifyMedia", help='Skip the validation of media attached to vApp VMs in source Org VDC during pre-check/migration (OPTIONAL ARGUMENT)',
+                            action="store_true", default=False, required=False)
         parser.add_argument("-s", "--skip", dest="skip", default=False, nargs="?",
                             help=f"Comma separated values of steps to SKIP while running migration/precheck. Allowed values - [{', '.join(mainConstants.VALID_SKIP_VALUES)}] (OPTIONAL ARGUMENT)", required=False)
         parser.add_argument("-e", "--execute", dest="execute", default=False, nargs="?",
@@ -148,6 +150,8 @@ class VMwareCloudDirectorNSXMigrator():
             self.vcdApiVersion = args.vcdApiVersion
         # if skipVerifyBridgeConn argument is provided then bridging connectivity verification is skipped
         self.skipVerifyBridgeConn = args.skipVerifyBridgeConn
+        # if skipVerifyMedia argument is provided then validation of media attached to vApp VMs is skipped
+        self.skipVerifyMedia = args.skipVerifyMedia
 
         self.renderInputFile()
 
@@ -193,7 +197,8 @@ class VMwareCloudDirectorNSXMigrator():
             (args.cleanupValue and (args.skip or args.execute)) or \
             (args.rollback and args.skip) or \
             (args.rollback and args.execute and set(self.executeList) != {mainConstants.BRIDGING_KEYWORD}) or \
-            (args.skipVerifyBridgeConn and (args.cleanupValue or args.preCheck or args.rollback or args.v2tAssessment)):
+            (args.skipVerifyBridgeConn and (args.cleanupValue or args.preCheck or args.rollback or args.v2tAssessment)) or \
+            (args.skipVerifyMedia and (args.cleanupValue or args.rollback or args.v2tAssessment)):
             parser.print_help()
             raise Exception("Invalid Input Arguments")
 
@@ -822,7 +827,8 @@ class VMwareCloudDirectorNSXMigrator():
 
     def runPrecheck(self):
         assessmentModeObj = VMwareCloudDirectorNSXMigratorAssessmentMode \
-            (self.inputDict, self.vcdObjList, self.nsxtObjList, self.nsxvObj, self.vcenterObj, self.executeList)
+            (self.inputDict, self.vcdObjList, self.nsxtObjList, self.nsxvObj, self.vcenterObj, self.executeList,
+             skipVerifyMedia=self.skipVerifyMedia)
         assessmentModeObj.run()
 
     def runPreparation(self):
@@ -888,7 +894,8 @@ class VMwareCloudDirectorNSXMigrator():
                                                self.orgVDCData[vcdObj.orgVdcInput["OrgVDCName"]]["id"], nsxtObj,
                                                self.nsxvObj, self.vcdObjList,
                                                validateVapp=mainConstants.MOVEVAPP_KEYWORD in self.executeList,
-                                               validateServices=mainConstants.SERVICES_KEYWORD in self.executeList))
+                                               validateServices=mainConstants.SERVICES_KEYWORD in self.executeList,
+                                               skipVerifyMedia=self.skipVerifyMedia))
             waitForThreadToComplete(futures)
 
         # Check if bridging is to be performed or not
